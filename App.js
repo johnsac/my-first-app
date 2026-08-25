@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, Alert, PanResponder, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -26,16 +26,16 @@ const shuffle = (deck) => {
   return d;
 };
 
-// Global reference to drop zones and move handler for PanResponder access without deep prop drilling
 const dropZones = {};
 let globalAttemptMove = () => false;
+let globalAutoMove = () => false;
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
 };
 
 export default function App() {
-  const [gameState, setGameState] = useState('menu'); // menu, playing, won
+  const [gameState, setGameState] = useState('menu'); 
   const [drawCount, setDrawCount] = useState(1);
   
   const [stock, setStock] = useState([]);
@@ -48,9 +48,8 @@ export default function App() {
   const [score, setScore] = useState(0);
   
   const [history, setHistory] = useState([]);
-  const [hinting, setHinting] = useState(false);
+  const [hinting, setHinting] = useState(null);
 
-  // Timer
   useEffect(() => {
     let interval = null;
     if (gameState === 'playing') {
@@ -113,9 +112,7 @@ export default function App() {
 
   const checkWinCondition = (newFoundations) => {
     const isWin = newFoundations.every(f => f.length === 13);
-    if (isWin) {
-      setGameState('won');
-    }
+    if (isWin) setGameState('won');
   };
 
   const handleStockTap = () => {
@@ -131,71 +128,68 @@ export default function App() {
       const newStock = [...stock];
       const newWaste = [...waste];
       const limit = Math.min(drawCount, newStock.length);
-      
       for(let i=0; i<limit; i++) {
         const card = newStock.pop();
         card.isFaceUp = true;
         newWaste.push(card);
       }
-      
       setStock(newStock);
       setWaste(newWaste);
     }
+  };
+
+  const checkValidMove = (baseCard, destLocation, destPileIndex, isMultipleMoving, currentFoundations, currentTableau) => {
+    if (destLocation === 'foundation') {
+      if (isMultipleMoving) return false;
+      const targetPile = currentFoundations[destPileIndex];
+      if (targetPile.length === 0) {
+        return baseCard.value === 'A';
+      } else {
+        const topCard = targetPile[targetPile.length - 1];
+        return baseCard.suit === topCard.suit && getValueRanking(baseCard.value) === getValueRanking(topCard.value) + 1;
+      }
+    } else if (destLocation === 'tableau') {
+      const targetPile = currentTableau[destPileIndex];
+      if (targetPile.length === 0) {
+        return baseCard.value === 'K';
+      } else {
+        const topCard = targetPile[targetPile.length - 1];
+        return topCard.isFaceUp && isRed(baseCard.suit) !== isRed(topCard.suit) && getValueRanking(baseCard.value) === getValueRanking(topCard.value) - 1;
+      }
+    }
+    return false;
   };
 
   const attemptMove = (srcLocation, srcPileIndex, srcCardIndex, destLocation, destPileIndex) => {
     if (srcLocation === destLocation && srcPileIndex === destPileIndex) return false;
 
     let movingCards = [];
-    if (srcLocation === 'waste') {
-      movingCards = [waste[waste.length - 1]];
-    } else if (srcLocation === 'tableau') {
-      movingCards = tableau[srcPileIndex].slice(srcCardIndex);
-    } else if (srcLocation === 'foundation') {
-      movingCards = [foundations[srcPileIndex][foundations[srcPileIndex].length - 1]];
-    }
+    if (srcLocation === 'waste') movingCards = [waste[waste.length - 1]];
+    else if (srcLocation === 'tableau') movingCards = tableau[srcPileIndex].slice(srcCardIndex);
+    else if (srcLocation === 'foundation') movingCards = [foundations[srcPileIndex][foundations[srcPileIndex].length - 1]];
 
     if (!movingCards || movingCards.length === 0 || !movingCards[0]) return false;
     const baseCard = movingCards[0];
+    const isMultipleMoving = movingCards.length > 1;
 
-    let isValidMove = false;
-    let newFoundations = [...foundations];
-    let newTableau = [...tableau];
-    let scoreChange = 0;
+    let isValidMove = checkValidMove(baseCard, destLocation, destPileIndex, isMultipleMoving, foundations, tableau);
 
-    if (destLocation === 'foundation') {
-      if (movingCards.length > 1) return false;
-      const targetPile = foundations[destPileIndex];
-      if (targetPile.length === 0) {
-        isValidMove = baseCard.value === 'A';
-      } else {
-        const topCard = targetPile[targetPile.length - 1];
-        isValidMove = baseCard.suit === topCard.suit && getValueRanking(baseCard.value) === getValueRanking(topCard.value) + 1;
-      }
-      
-      if (isValidMove) {
+    if (isValidMove) {
+      saveHistory(stock, waste, foundations, tableau, score, moves);
+      let newFoundations = [...foundations];
+      let newTableau = [...tableau];
+      let scoreChange = 0;
+
+      if (destLocation === 'foundation') {
         newFoundations[destPileIndex] = [...newFoundations[destPileIndex], baseCard];
         if (srcLocation === 'tableau') scoreChange = 10;
         if (srcLocation === 'waste') scoreChange = 15;
-      }
-    } else if (destLocation === 'tableau') {
-      const targetPile = tableau[destPileIndex];
-      if (targetPile.length === 0) {
-        isValidMove = baseCard.value === 'K';
-      } else {
-        const topCard = targetPile[targetPile.length - 1];
-        isValidMove = topCard.isFaceUp && isRed(baseCard.suit) !== isRed(topCard.suit) && getValueRanking(baseCard.value) === getValueRanking(topCard.value) - 1;
-      }
-
-      if (isValidMove) {
+      } else if (destLocation === 'tableau') {
         newTableau[destPileIndex] = [...newTableau[destPileIndex], ...movingCards];
         if (srcLocation === 'waste') scoreChange = 5;
         if (srcLocation === 'foundation') scoreChange = -15;
       }
-    }
 
-    if (isValidMove) {
-      saveHistory(stock, waste, foundations, tableau, score, moves);
       setMoves(m => m + 1);
       setScore(s => Math.max(0, s + scoreChange));
 
@@ -221,12 +215,90 @@ export default function App() {
     return false;
   };
 
-  // Wire up global attempt move
+  const autoMoveToFoundation = (srcLocation, srcPileIndex, srcCardIndex) => {
+    let baseCard = null;
+    let isMultiple = false;
+    if (srcLocation === 'waste' && waste.length > 0) baseCard = waste[waste.length - 1];
+    else if (srcLocation === 'tableau' && tableau[srcPileIndex].length > 0) {
+      baseCard = tableau[srcPileIndex][srcCardIndex];
+      isMultiple = tableau[srcPileIndex].length - 1 > srcCardIndex;
+    }
+    
+    if (!baseCard || isMultiple) return false;
+
+    for (let f = 0; f < 4; f++) {
+      if (checkValidMove(baseCard, 'foundation', f, false, foundations, tableau)) {
+        return attemptMove(srcLocation, srcPileIndex, srcCardIndex, 'foundation', f);
+      }
+    }
+    return false;
+  };
+
   globalAttemptMove = attemptMove;
+  globalAutoMove = autoMoveToFoundation;
 
   const handleHint = () => {
-    setHinting(true);
-    setTimeout(() => setHinting(false), 800);
+    let possibleMove = null;
+
+    // Check waste to foundation
+    if (waste.length > 0) {
+      const card = waste[waste.length - 1];
+      for (let f = 0; f < 4; f++) {
+        if (checkValidMove(card, 'foundation', f, false, foundations, tableau)) {
+          possibleMove = { srcId: card.id, destType: 'foundation', destIndex: f };
+          break;
+        }
+      }
+      if (!possibleMove) {
+        for (let t = 0; t < 7; t++) {
+          if (checkValidMove(card, 'tableau', t, false, foundations, tableau)) {
+            possibleMove = { srcId: card.id, destType: 'tableau', destIndex: t };
+            break;
+          }
+        }
+      }
+    }
+
+    // Check tableau to foundation/tableau
+    if (!possibleMove) {
+      for (let tSrc = 0; tSrc < 7; tSrc++) {
+        const pile = tableau[tSrc];
+        for (let cSrc = 0; cSrc < pile.length; cSrc++) {
+          if (!pile[cSrc].isFaceUp) continue;
+          
+          const card = pile[cSrc];
+          const isMultiple = cSrc < pile.length - 1;
+
+          if (!isMultiple) {
+            for (let f = 0; f < 4; f++) {
+              if (checkValidMove(card, 'foundation', f, false, foundations, tableau)) {
+                possibleMove = { srcId: card.id, destType: 'foundation', destIndex: f };
+                break;
+              }
+            }
+          }
+          if (possibleMove) break;
+
+          for (let tDest = 0; tDest < 7; tDest++) {
+            if (tSrc === tDest) continue;
+            // Don't suggest moving a King to an empty space if it's already at the bottom
+            if (card.value === 'K' && cSrc === 0 && tableau[tDest].length === 0) continue;
+
+            if (checkValidMove(card, 'tableau', tDest, isMultiple, foundations, tableau)) {
+              possibleMove = { srcId: card.id, destType: 'tableau', destIndex: tDest };
+              break;
+            }
+          }
+          if (possibleMove) break;
+        }
+        if (possibleMove) break;
+      }
+    }
+
+    if (possibleMove) {
+      setHinting(possibleMove);
+      setTimeout(() => setHinting(null), 1500);
+    }
   };
 
   const formatTime = (seconds) => {
@@ -286,14 +358,12 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerText}>Score: {score}</Text>
         <Text style={styles.headerText}>Time: {formatTime(time)}</Text>
         <Text style={styles.headerText}>Moves: {moves}</Text>
       </View>
       
-      {/* Top row: Foundations (Left), Stock/Waste (Right) */}
       <View style={styles.topRow}>
         <View style={styles.foundationsContainer}>
           {foundations.map((f, index) => (
@@ -314,7 +384,7 @@ export default function App() {
                     hinting={hinting}
                   />
                 ) : (
-                  <CardDisplay card={card} />
+                  <CardDisplay card={card} hinting={hinting?.srcId === card.id} />
                 )}
               </View>
             ))}
@@ -333,14 +403,12 @@ export default function App() {
         </View>
       </View>
 
-      {/* Main Tableau */}
       <View style={styles.tableauContainer}>
         {tableau.map((pile, pileIndex) => (
           <DroppablePile key={`t-${pileIndex}`} type="tableau" index={pileIndex} cards={pile} isTableau={true} hinting={hinting} />
         ))}
       </View>
       
-      {/* Action Bar */}
       <View style={styles.actionBar}>
         <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
           <Text style={styles.actionText}>Undo</Text>
@@ -363,13 +431,21 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
     });
   };
 
+  const isHintDest = hinting && hinting.destType === type && hinting.destIndex === index;
+  let currentTop = 0;
+
   return (
     <View style={isTableau ? styles.tableauColumn : styles.foundationPile} onLayout={handleLayout} collapsable={false}>
-      {cards.length === 0 && <View style={[styles.cardSlot, hinting && type==='foundation' && styles.hintGlow]} />}
+      {cards.length === 0 && <View style={[styles.cardSlot, isHintDest && styles.hintGlowDest]} />}
       {cards.map((card, cardIndex) => {
+        const topPos = currentTop;
+        if (isTableau) {
+          currentTop += card.isFaceUp ? 22 : 11; // Reduced spacing for face down cards
+        }
+
         const isMovable = card.isFaceUp;
         return (
-          <View key={card.id} style={isTableau ? [styles.tableauCardWrapper, { top: cardIndex * 22 }] : styles.foundationCardWrapper}>
+          <View key={card.id} style={isTableau ? [styles.tableauCardWrapper, { top: topPos }] : styles.foundationCardWrapper}>
             {isMovable ? (
               <DraggableCard 
                 card={card} 
@@ -381,7 +457,7 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
                 isTableau={isTableau}
               />
             ) : (
-              <CardDisplay card={card} />
+              <CardDisplay card={card} hinting={hinting?.srcId === card.id} />
             )}
           </View>
         );
@@ -393,11 +469,12 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
 const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [], isTableau, hinting }) => {
   const pan = useRef(new Animated.ValueXY()).current;
   const [isDragging, setIsDragging] = useState(false);
+  const lastTap = useRef(0);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
       onPanResponderGrant: () => {
         setIsDragging(true);
         pan.setOffset({ x: pan.x._value, y: pan.y._value });
@@ -408,6 +485,18 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         setIsDragging(false);
         pan.flattenOffset();
         
+        // Double tap detection
+        const now = Date.now();
+        if (Math.abs(gesture.dx) < 5 && Math.abs(gesture.dy) < 5) {
+          if (now - lastTap.current < 300) {
+            // It's a double tap
+            if (globalAutoMove(location, pileIndex, cardIndex)) {
+              return; // Move handled
+            }
+          }
+          lastTap.current = now;
+        }
+
         let droppedOn = null;
         for (const key in dropZones) {
           const zone = dropZones[key];
@@ -438,7 +527,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
     <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { zIndex: isDragging ? 999 : 1 }]}>
       {renderedCards.map((c, i) => (
         <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * 22, left: 0 } : {}}>
-          <CardDisplay card={c} isDragging={isDragging && i===0} hinting={hinting} />
+          <CardDisplay card={c} isDragging={isDragging && i===0} hinting={hinting?.srcId === c.id} />
         </View>
       ))}
     </Animated.View>
@@ -500,7 +589,8 @@ const styles = StyleSheet.create({
   cardDragging: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
   cardValueTop: { fontSize: 14, fontWeight: 'bold' },
   cardSuitCenter: { fontSize: 24, textAlign: 'center', marginTop: -4 },
-  hintGlow: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#fbbf24', shadowOpacity: 1, shadowRadius: 10 },
+  hintGlow: { borderColor: '#0ea5e9', borderWidth: 3, shadowColor: '#0ea5e9', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
+  hintGlowDest: { borderColor: '#0ea5e9', borderWidth: 3, backgroundColor: 'rgba(14, 165, 233, 0.3)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
   actionButton: { padding: 10 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
