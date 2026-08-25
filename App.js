@@ -587,8 +587,8 @@ export default function App() {
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
-              <View style={[styles.card, styles.cardBack, hinting?.destType === 'stock' && styles.hintGlowDest]}>
-                <View style={styles.cardBackPattern} />
+              <View style={[styles.card, hinting?.destType === 'stock' && styles.hintGlowDest, { padding: 0 }]}>
+                <Image source={require('./assets/card_back.jpg')} style={{ width: '100%', height: '100%', borderRadius: 5 }} resizeMode="cover" />
               </View>
             ) : (
               <View style={[styles.cardSlot, hinting?.destType === 'stock' && styles.hintGlowDest]}>
@@ -792,8 +792,8 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
   if (!card) return null;
   if (!card.isFaceUp) {
     return (
-      <View style={[styles.card, styles.cardBack]}>
-        <View style={styles.cardBackPattern} />
+      <View style={[styles.card, { padding: 0 }]}>
+        <Image source={require('./assets/card_back.jpg')} style={{ width: '100%', height: '100%', borderRadius: 5 }} resizeMode="cover" />
       </View>
     );
   }
@@ -805,7 +805,7 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
         <View style={[styles.cardSuitContainer, { justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: -4, marginBottom: -4 }]}>
           <Image 
             source={FACE_IMAGES[card.value]} 
-            style={{ width: '150%', height: '150%', borderRadius: 2 }}
+            style={{ width: '150%', height: '150%', borderRadius: 2, transform: [{ rotate: '180deg' }] }}
             resizeMode="cover"
           />
         </View>
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   stockWasteContainer: { flexDirection: 'row', gap: 8 },
   foundationPile: { width: cardWidth, height: cardHeight },
   foundationCardWrapper: { position: 'absolute' },
-  wasteContainer: { width: cardWidth + 40, height: cardHeight },
+  wasteContainer: { width: cardWidth + 70, height: cardHeight },
   stockContainer: { width: cardWidth, height: cardHeight },
   recycleIcon: { fontSize: 24, color: 'rgba(255,255,255,0.3)' },
   tableauContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
