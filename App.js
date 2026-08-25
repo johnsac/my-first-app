@@ -185,26 +185,26 @@ export default function App() {
   const handleStockTap = () => {
     saveHistory(stock, waste, foundations, tableau, score, moves);
     playSound();
+
+    let newStock = [...stock];
+    let newWaste = [...waste];
     
-    if (stock.length === 0) {
-      if (waste.length === 0) return;
-      const recycled = [...waste].reverse().map(c => ({...c, isFaceUp: false}));
-      setStock(recycled);
-      setWaste([]);
-      setWasteDrawCount(0);
-      setScore(s => Math.max(0, s - 100)); 
+    if (newStock.length === 0) {
+      if (newWaste.length === 0) return; 
+      newStock = newWaste.reverse().map(c => ({ ...c, isFaceUp: false }));
+      newWaste = [];
+      setStock(newStock);
+      setWaste(newWaste);
+      setScore(s => Math.max(0, s - 100));
     } else {
-      const newStock = [...stock];
-      const newWaste = [...waste];
       const limit = Math.min(drawCount, newStock.length);
-      for(let i=0; i<limit; i++) {
+      for (let i = 0; i < limit; i++) {
         const card = newStock.pop();
         card.isFaceUp = true;
         newWaste.push(card);
       }
       setStock(newStock);
       setWaste(newWaste);
-      setWasteDrawCount(limit);
     }
     
     setMoves(m => m + 1);
@@ -360,7 +360,7 @@ export default function App() {
       let startX = 0, startY = 0;
       if (nextMove.srcLocation === 'waste') {
         const wasteZone = dropZones[`waste-0`];
-        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, wasteDrawCount) - 1) * 15;
+        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, drawCount) - 1) * 15;
         startY = wasteZone?.layout?.y || 0;
       } else if (nextMove.srcLocation === 'tableau') {
         const tZone = dropZones[`tableau-${nextMove.srcPileIndex}`];
@@ -570,7 +570,7 @@ export default function App() {
             }}
           >
             {(() => {
-              const startIdx = Math.max(0, waste.length - wasteDrawCount);
+              const startIdx = Math.max(0, waste.length - drawCount);
               const visibleWaste = waste.slice(startIdx);
               return visibleWaste.map((card, i) => {
                 const actualIndex = startIdx + i;
