@@ -802,11 +802,11 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
     <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow]}>
       <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
       {FACE_IMAGES[card.value] ? (
-        <View style={styles.cardSuitContainer}>
+        <View style={[styles.cardSuitContainer, { justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: -4, marginBottom: -4 }]}>
           <Image 
             source={FACE_IMAGES[card.value]} 
-            style={{ width: '95%', height: '95%', borderRadius: 2 }}
-            resizeMode="contain"
+            style={{ width: '150%', height: '150%', borderRadius: 2 }}
+            resizeMode="cover"
           />
         </View>
       ) : (
@@ -949,13 +949,13 @@ const styles = StyleSheet.create({
   tableauColumn: { width: cardWidth, minHeight: cardHeight },
   tableauCardWrapper: { position: 'absolute', left: 0, right: 0 },
   cardSlot: { width: cardWidth, height: cardHeight, borderWidth: 2, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  card: { width: cardWidth, height: cardHeight, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#ccc', padding: 4 },
+  card: { width: cardWidth, height: cardHeight, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#ccc', padding: 4, overflow: 'hidden' },
   cardBack: { backgroundColor: '#1d4ed8', borderColor: '#fff', borderWidth: 2, padding: 3 },
   cardBackPattern: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
   cardDragging: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
-  cardValueTop: { fontSize: 14, fontWeight: 'bold' },
+  cardValueTop: { fontSize: Math.max(14, cardWidth * 0.28), fontWeight: 'bold' },
   cardSuitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  cardSuitCenter: { fontSize: 42, textAlign: 'center' },
+  cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center' },
   hintGlow: { borderColor: '#0ea5e9', borderWidth: 3, shadowColor: '#0ea5e9', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#0ea5e9', borderWidth: 3, backgroundColor: 'rgba(14, 165, 233, 0.3)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
