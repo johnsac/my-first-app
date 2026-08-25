@@ -360,7 +360,7 @@ export default function App() {
       let startX = 0, startY = 0;
       if (nextMove.srcLocation === 'waste') {
         const wasteZone = dropZones[`waste-0`];
-        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, wasteDrawCount) - 1) * 25;
+        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, wasteDrawCount) - 1) * 15;
         startY = wasteZone?.layout?.y || 0;
       } else if (nextMove.srcLocation === 'tableau') {
         const tZone = dropZones[`tableau-${nextMove.srcPileIndex}`];
@@ -578,7 +578,7 @@ export default function App() {
                   return null;
                 }
                 return (
-                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * 25, zIndex: i}]}>
+                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * 15, zIndex: i}]}>
                     <DraggableCard card={card} location="waste" pileIndex={0} cardIndex={actualIndex} hinting={hinting} />
                   </View>
                 );
@@ -587,8 +587,8 @@ export default function App() {
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
-              <View style={[styles.card, hinting?.destType === 'stock' && styles.hintGlowDest, { padding: 0 }]}>
-                <Image source={require('./assets/card_back.jpg')} style={{ width: '100%', height: '100%', borderRadius: 5 }} resizeMode="cover" />
+              <View style={[styles.card, styles.cardBack, hinting?.destType === 'stock' && styles.hintGlowDest]}>
+                <View style={styles.cardBackPattern} />
               </View>
             ) : (
               <View style={[styles.cardSlot, hinting?.destType === 'stock' && styles.hintGlowDest]}>
@@ -792,8 +792,8 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
   if (!card) return null;
   if (!card.isFaceUp) {
     return (
-      <View style={[styles.card, { padding: 0 }]}>
-        <Image source={require('./assets/card_back.jpg')} style={{ width: '100%', height: '100%', borderRadius: 5 }} resizeMode="cover" />
+      <View style={[styles.card, styles.cardBack]}>
+        <View style={styles.cardBackPattern} />
       </View>
     );
   }
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
   stockWasteContainer: { flexDirection: 'row', gap: 8 },
   foundationPile: { width: cardWidth, height: cardHeight },
   foundationCardWrapper: { position: 'absolute' },
-  wasteContainer: { width: cardWidth + 70, height: cardHeight },
+  wasteContainer: { width: cardWidth + 40, height: cardHeight },
   stockContainer: { width: cardWidth, height: cardHeight },
   recycleIcon: { fontSize: 24, color: 'rgba(255,255,255,0.3)' },
   tableauContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
