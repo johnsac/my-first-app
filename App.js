@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, Alert, PanResponder, Animated } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -26,24 +26,72 @@ const shuffle = (deck) => {
   return d;
 };
 
+// Global reference to drop zones and move handler for PanResponder access without deep prop drilling
+const dropZones = {};
+let globalAttemptMove = () => false;
+
+const registerDropZone = (type, index, layout) => {
+  dropZones[`${type}-${index}`] = { type, index, layout };
+};
+
 export default function App() {
+  const [gameState, setGameState] = useState('menu'); // menu, playing, won
+  const [drawCount, setDrawCount] = useState(1);
+  
   const [stock, setStock] = useState([]);
   const [waste, setWaste] = useState([]);
   const [foundations, setFoundations] = useState([[], [], [], []]);
   const [tableau, setTableau] = useState([[], [], [], [], [], [], []]);
   
-  // selectedCard: { location: 'waste' | 'tableau' | 'foundation', pileIndex: number, cardIndex: number }
-  const [selectedCard, setSelectedCard] = useState(null);
+  const [time, setTime] = useState(0);
+  const [moves, setMoves] = useState(0);
+  const [score, setScore] = useState(0);
+  
+  const [history, setHistory] = useState([]);
+  const [hinting, setHinting] = useState(false);
 
+  // Timer
   useEffect(() => {
-    initializeGame();
-  }, []);
+    let interval = null;
+    if (gameState === 'playing') {
+      interval = setInterval(() => {
+        setTime(t => t + 1);
+      }, 1000);
+    } else if (gameState !== 'playing') {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [gameState]);
 
-  const initializeGame = () => {
+  const saveHistory = (st = stock, w = waste, f = foundations, t = tableau, sc = score, m = moves) => {
+    const snap = {
+      stock: JSON.stringify(st),
+      waste: JSON.stringify(w),
+      foundations: JSON.stringify(f),
+      tableau: JSON.stringify(t),
+      score: sc,
+      moves: m
+    };
+    setHistory(prev => [...prev, snap]);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const lastState = history[history.length - 1];
+    setStock(JSON.parse(lastState.stock));
+    setWaste(JSON.parse(lastState.waste));
+    setFoundations(JSON.parse(lastState.foundations));
+    setTableau(JSON.parse(lastState.tableau));
+    setScore(lastState.score);
+    setMoves(lastState.moves);
+    setHistory(history.slice(0, -1));
+  };
+
+  const initializeGame = (selectedDrawCount = 1) => {
+    setDrawCount(selectedDrawCount);
     const deck = shuffle(createDeck());
     const newTableau = [[], [], [], [], [], [], []];
     
-    // Deal tableau
     for (let i = 0; i < 7; i++) {
       for (let j = i; j < 7; j++) {
         const card = deck.pop();
@@ -56,47 +104,48 @@ export default function App() {
     setStock(deck);
     setWaste([]);
     setFoundations([[], [], [], []]);
-    setSelectedCard(null);
-  };
-
-  const handleStockTap = () => {
-    if (stock.length === 0) {
-      // Recycle waste to stock
-      const recycled = [...waste].reverse().map(c => ({...c, isFaceUp: false}));
-      setStock(recycled);
-      setWaste([]);
-    } else {
-      // Draw one card to waste
-      const newStock = [...stock];
-      const card = newStock.pop();
-      card.isFaceUp = true;
-      setStock(newStock);
-      setWaste([...waste, card]);
-    }
-    setSelectedCard(null);
+    setTime(0);
+    setMoves(0);
+    setScore(0);
+    setHistory([]);
+    setGameState('playing');
   };
 
   const checkWinCondition = (newFoundations) => {
     const isWin = newFoundations.every(f => f.length === 13);
     if (isWin) {
-      Alert.alert("Congratulations!", "You won the game!", [
-        { text: "Play Again", onPress: initializeGame }
-      ]);
+      setGameState('won');
     }
   };
 
-  const attemptMove = (destLocation, destPileIndex) => {
-    if (!selectedCard) return;
-
-    const { location: srcLocation, pileIndex: srcPileIndex, cardIndex: srcCardIndex } = selectedCard;
+  const handleStockTap = () => {
+    saveHistory(stock, waste, foundations, tableau, score, moves);
+    setMoves(m => m + 1);
     
-    // Can't move to the same place we selected from
-    if (srcLocation === destLocation && srcPileIndex === destPileIndex) {
-      setSelectedCard(null);
-      return;
+    if (stock.length === 0) {
+      const recycled = [...waste].reverse().map(c => ({...c, isFaceUp: false}));
+      setStock(recycled);
+      setWaste([]);
+      setScore(s => Math.max(0, s - 100)); 
+    } else {
+      const newStock = [...stock];
+      const newWaste = [...waste];
+      const limit = Math.min(drawCount, newStock.length);
+      
+      for(let i=0; i<limit; i++) {
+        const card = newStock.pop();
+        card.isFaceUp = true;
+        newWaste.push(card);
+      }
+      
+      setStock(newStock);
+      setWaste(newWaste);
     }
+  };
 
-    // Get the moving cards
+  const attemptMove = (srcLocation, srcPileIndex, srcCardIndex, destLocation, destPileIndex) => {
+    if (srcLocation === destLocation && srcPileIndex === destPileIndex) return false;
+
     let movingCards = [];
     if (srcLocation === 'waste') {
       movingCards = [waste[waste.length - 1]];
@@ -106,18 +155,16 @@ export default function App() {
       movingCards = [foundations[srcPileIndex][foundations[srcPileIndex].length - 1]];
     }
 
-    if (movingCards.length === 0) return;
+    if (!movingCards || movingCards.length === 0 || !movingCards[0]) return false;
     const baseCard = movingCards[0];
 
     let isValidMove = false;
+    let newFoundations = [...foundations];
+    let newTableau = [...tableau];
+    let scoreChange = 0;
 
-    // Validate move to foundation
     if (destLocation === 'foundation') {
-      if (movingCards.length > 1) {
-        setSelectedCard(null);
-        return; // Can only move one card to foundation
-      }
-      
+      if (movingCards.length > 1) return false;
       const targetPile = foundations[destPileIndex];
       if (targetPile.length === 0) {
         isValidMove = baseCard.value === 'A';
@@ -127,14 +174,11 @@ export default function App() {
       }
       
       if (isValidMove) {
-        const newFoundations = [...foundations];
         newFoundations[destPileIndex] = [...newFoundations[destPileIndex], baseCard];
-        setFoundations(newFoundations);
-        checkWinCondition(newFoundations);
+        if (srcLocation === 'tableau') scoreChange = 10;
+        if (srcLocation === 'waste') scoreChange = 15;
       }
-    } 
-    // Validate move to tableau
-    else if (destLocation === 'tableau') {
+    } else if (destLocation === 'tableau') {
       const targetPile = tableau[destPileIndex];
       if (targetPile.length === 0) {
         isValidMove = baseCard.value === 'K';
@@ -144,115 +188,115 @@ export default function App() {
       }
 
       if (isValidMove) {
-        const newTableau = [...tableau];
         newTableau[destPileIndex] = [...newTableau[destPileIndex], ...movingCards];
-        setTableau(newTableau);
+        if (srcLocation === 'waste') scoreChange = 5;
+        if (srcLocation === 'foundation') scoreChange = -15;
       }
     }
 
     if (isValidMove) {
-      // Remove from source
+      saveHistory(stock, waste, foundations, tableau, score, moves);
+      setMoves(m => m + 1);
+      setScore(s => Math.max(0, s + scoreChange));
+
       if (srcLocation === 'waste') {
         const newWaste = [...waste];
         newWaste.pop();
         setWaste(newWaste);
       } else if (srcLocation === 'tableau') {
-        const newTableau = [...tableau];
         newTableau[srcPileIndex] = newTableau[srcPileIndex].slice(0, srcCardIndex);
-        // Auto flip revealed card
-        if (newTableau[srcPileIndex].length > 0) {
+        if (newTableau[srcPileIndex].length > 0 && !newTableau[srcPileIndex][newTableau[srcPileIndex].length - 1].isFaceUp) {
           newTableau[srcPileIndex][newTableau[srcPileIndex].length - 1].isFaceUp = true;
+          setScore(s => s + 5);
         }
-        setTableau(newTableau);
       } else if (srcLocation === 'foundation') {
-        const newFoundations = [...foundations];
         newFoundations[srcPileIndex].pop();
-        setFoundations(newFoundations);
       }
-    }
 
-    setSelectedCard(null);
+      setTableau(newTableau);
+      setFoundations(newFoundations);
+      if (destLocation === 'foundation') checkWinCondition(newFoundations);
+      return true;
+    }
+    return false;
   };
 
-  const handleWasteTap = () => {
-    if (waste.length === 0) return;
-    
-    if (selectedCard && selectedCard.location === 'waste') {
-      setSelectedCard(null); // Deselect
-    } else if (selectedCard) {
-      setSelectedCard(null); // Invalid move to waste
-    } else {
-      setSelectedCard({ location: 'waste', pileIndex: 0, cardIndex: waste.length - 1 });
-    }
+  // Wire up global attempt move
+  globalAttemptMove = attemptMove;
+
+  const handleHint = () => {
+    setHinting(true);
+    setTimeout(() => setHinting(false), 800);
   };
 
-  const handleFoundationTap = (pileIndex) => {
-    if (selectedCard) {
-      attemptMove('foundation', pileIndex);
-    } else if (foundations[pileIndex].length > 0) {
-      setSelectedCard({ location: 'foundation', pileIndex, cardIndex: foundations[pileIndex].length - 1 });
-    }
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const handleTableauTap = (pileIndex, cardIndex, card) => {
-    if (selectedCard) {
-      attemptMove('tableau', pileIndex);
-    } else {
-      // Only allow selecting face up cards
-      if (card && card.isFaceUp) {
-        setSelectedCard({ location: 'tableau', pileIndex, cardIndex });
-      } else if (tableau[pileIndex].length === 0) {
-        // Tapped empty pile when trying to move a king - wait, attemptMove handles this if selectedCard was true.
-        // If no selectedCard, tapping empty pile does nothing.
-      }
-    }
-  };
-
-  const isSelected = (location, pileIndex, cardIndex) => {
-    if (!selectedCard) return false;
-    if (location === 'tableau') {
-      return selectedCard.location === location && selectedCard.pileIndex === pileIndex && cardIndex >= selectedCard.cardIndex;
-    }
-    return selectedCard.location === location && selectedCard.pileIndex === pileIndex && selectedCard.cardIndex === cardIndex;
-  };
-
-  const renderCard = (card, location, pileIndex, cardIndex, style = {}) => {
-    if (!card) {
-      // Empty slot
-      return (
-        <View style={[styles.cardSlot, style]}>
-        </View>
-      );
-    }
-
-    const selected = isSelected(location, pileIndex, cardIndex);
-
-    if (!card.isFaceUp) {
-      return (
-        <View style={[styles.card, styles.cardBack, style, selected && styles.cardSelected]}>
-          <View style={styles.cardBackPattern} />
-        </View>
-      );
-    }
-
-    const color = isRed(card.suit) ? '#ef4444' : '#111827';
-    
+  if (gameState === 'menu') {
     return (
-      <View style={[styles.card, style, selected && styles.cardSelected]}>
-        <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
-        <Text style={[styles.cardSuitCenter, { color }]}>{card.suit}</Text>
-      </View>
+      <SafeAreaView style={styles.menuContainer}>
+        <StatusBar barStyle="light-content" />
+        <Text style={styles.menuTitle}>Klondike Solitaire</Text>
+        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(1)}>
+          <Text style={styles.menuButtonText}>Play Draw 1</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(3)}>
+          <Text style={styles.menuButtonText}>Play Draw 3</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
-  };
+  }
+
+  if (gameState === 'won') {
+    return (
+      <SafeAreaView style={styles.menuContainer}>
+        <StatusBar barStyle="light-content" />
+        <Text style={styles.menuTitle}>You Won!</Text>
+        <Text style={styles.winStats}>Score: {score}</Text>
+        <Text style={styles.winStats}>Time: {formatTime(time)}</Text>
+        <Text style={styles.winStats}>Moves: {moves}</Text>
+        <TouchableOpacity style={[styles.menuButton, {marginTop: 40}]} onPress={() => setGameState('menu')}>
+          <Text style={styles.menuButtonText}>Main Menu</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Top row: Stock, Waste, spacer, Foundations */}
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerText}>Score: {score}</Text>
+        <Text style={styles.headerText}>Time: {formatTime(time)}</Text>
+        <Text style={styles.headerText}>Moves: {moves}</Text>
+      </View>
+      
+      {/* Top row: Foundations (Left), Stock/Waste (Right) */}
       <View style={styles.topRow}>
+        <View style={styles.foundationsContainer}>
+          {foundations.map((f, index) => (
+            <DroppablePile key={`f-${index}`} type="foundation" index={index} cards={f} hinting={hinting} />
+          ))}
+        </View>
+
         <View style={styles.stockWasteContainer}>
-          <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8}>
+          <View style={styles.wasteContainer}>
+            {waste.length > 0 && (
+              <DraggableCard 
+                card={waste[waste.length - 1]} 
+                location="waste" 
+                pileIndex={0} 
+                cardIndex={waste.length - 1} 
+                hinting={hinting}
+              />
+            )}
+          </View>
+          <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
               <View style={[styles.card, styles.cardBack]}>
                 <View style={styles.cardBackPattern} />
@@ -263,171 +307,172 @@ export default function App() {
               </View>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleWasteTap} activeOpacity={0.8} style={styles.wasteContainer}>
-            {waste.length > 0 ? renderCard(waste[waste.length - 1], 'waste', 0, waste.length - 1) : renderCard(null)}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.foundationsContainer}>
-          {foundations.map((f, index) => (
-            <TouchableOpacity key={`f-${index}`} onPress={() => handleFoundationTap(index)} activeOpacity={0.8} style={styles.foundationPile}>
-              {f.length > 0 ? renderCard(f[f.length - 1], 'foundation', index, f.length - 1) : renderCard(null)}
-            </TouchableOpacity>
-          ))}
         </View>
       </View>
 
       {/* Main Tableau */}
       <View style={styles.tableauContainer}>
         {tableau.map((pile, pileIndex) => (
-          <TouchableOpacity 
-            key={`t-${pileIndex}`} 
-            style={styles.tableauColumn}
-            activeOpacity={1}
-            onPress={() => {
-              if (pile.length === 0) {
-                handleTableauTap(pileIndex, -1, null);
-              } else {
-                handleTableauTap(pileIndex, pile.length - 1, pile[pile.length - 1]); // fallback if tapped below cards
-              }
-            }}
-          >
-            {pile.length === 0 && renderCard(null)}
-            {pile.map((card, cardIndex) => (
-              <TouchableOpacity
-                key={card.id}
-                style={[styles.tableauCardWrapper, { top: cardIndex * 22 }]}
-                activeOpacity={0.9}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleTableauTap(pileIndex, cardIndex, card);
-                }}
-              >
-                {renderCard(card, 'tableau', pileIndex, cardIndex)}
-              </TouchableOpacity>
-            ))}
-          </TouchableOpacity>
+          <DroppablePile key={`t-${pileIndex}`} type="tableau" index={pileIndex} cards={pile} isTableau={true} hinting={hinting} />
         ))}
       </View>
       
-      <TouchableOpacity style={styles.restartButton} onPress={initializeGame}>
-        <Text style={styles.restartText}>Restart Game</Text>
-      </TouchableOpacity>
-      
+      {/* Action Bar */}
+      <View style={styles.actionBar}>
+        <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+          <Text style={styles.actionText}>Undo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
+          <Text style={styles.actionText}>Hint</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+          <Text style={styles.actionText}>Menu</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
+const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
+  const handleLayout = (e) => {
+    e.target.measure((x, y, width, height, pageX, pageY) => {
+      registerDropZone(type, index, { x: pageX, y: pageY, width, height: isTableau ? Math.max(height, cardHeight * 3) : height });
+    });
+  };
+
+  return (
+    <View style={isTableau ? styles.tableauColumn : styles.foundationPile} onLayout={handleLayout} collapsable={false}>
+      {cards.length === 0 && <View style={[styles.cardSlot, hinting && type==='foundation' && styles.hintGlow]} />}
+      {cards.map((card, cardIndex) => {
+        const isMovable = card.isFaceUp;
+        return (
+          <View key={card.id} style={isTableau ? [styles.tableauCardWrapper, { top: cardIndex * 22 }] : styles.foundationCardWrapper}>
+            {isMovable ? (
+              <DraggableCard 
+                card={card} 
+                location={type} 
+                pileIndex={index} 
+                cardIndex={cardIndex} 
+                hinting={hinting}
+                movingCards={isTableau ? cards.slice(cardIndex) : [card]}
+                isTableau={isTableau}
+              />
+            ) : (
+              <CardDisplay card={card} />
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [], isTableau, hinting }) => {
+  const pan = useRef(new Animated.ValueXY()).current;
+  const [isDragging, setIsDragging] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+        pan.setOffset({ x: pan.x._value, y: pan.y._value });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (e, gesture) => {
+        setIsDragging(false);
+        pan.flattenOffset();
+        
+        let droppedOn = null;
+        for (const key in dropZones) {
+          const zone = dropZones[key];
+          if (
+            gesture.moveX >= zone.layout.x && gesture.moveX <= zone.layout.x + zone.layout.width &&
+            gesture.moveY >= zone.layout.y && gesture.moveY <= zone.layout.y + zone.layout.height
+          ) {
+            droppedOn = zone;
+            break;
+          }
+        }
+
+        let moved = false;
+        if (droppedOn) {
+          moved = globalAttemptMove(location, pileIndex, cardIndex, droppedOn.type, droppedOn.index);
+        }
+
+        if (!moved) {
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start();
+        }
+      }
+    })
+  ).current;
+
+  const renderedCards = movingCards.length > 0 ? movingCards : [card];
+
+  return (
+    <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { zIndex: isDragging ? 999 : 1 }]}>
+      {renderedCards.map((c, i) => (
+        <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * 22, left: 0 } : {}}>
+          <CardDisplay card={c} isDragging={isDragging && i===0} hinting={hinting} />
+        </View>
+      ))}
+    </Animated.View>
+  );
+};
+
+const CardDisplay = ({ card, isDragging, hinting }) => {
+  if (!card) return null;
+  if (!card.isFaceUp) {
+    return (
+      <View style={[styles.card, styles.cardBack]}>
+        <View style={styles.cardBackPattern} />
+      </View>
+    );
+  }
+  const color = isRed(card.suit) ? '#ef4444' : '#111827';
+  return (
+    <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow]}>
+      <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
+      <Text style={[styles.cardSuitCenter, { color }]}>{card.suit}</Text>
+    </View>
+  );
+};
+
 const windowWidth = Dimensions.get('window').width;
-const cardWidth = (windowWidth - 32 - 30) / 7; // padding, gaps
+const cardWidth = (windowWidth - 32 - 30) / 7; 
 const cardHeight = cardWidth * 1.4;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f5132', // Classic green felt
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    marginBottom: 24,
-    zIndex: 10,
-  },
-  stockWasteContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  wasteContainer: {
-    marginLeft: 8,
-  },
-  foundationsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  foundationPile: {
-  },
-  recycleIcon: {
-    fontSize: 24,
-    color: 'rgba(255,255,255,0.3)',
-  },
-  tableauContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  tableauColumn: {
-    width: cardWidth,
-    minHeight: cardHeight, // Allows tapping empty columns
-  },
-  tableauCardWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-  },
-  cardSlot: {
-    width: cardWidth,
-    height: cardHeight,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    width: cardWidth,
-    height: cardHeight,
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  cardBack: {
-    backgroundColor: '#1d4ed8', // Blue back
-    borderColor: '#fff',
-    borderWidth: 2,
-    padding: 3,
-  },
-  cardBackPattern: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 2,
-  },
-  cardSelected: {
-    borderColor: '#fbbf24', // Yellow highlight
-    borderWidth: 3,
-    transform: [{ scale: 1.05 }],
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-  },
-  cardValueTop: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  cardSuitCenter: {
-    fontSize: 24,
-    textAlign: 'center',
-    marginTop: -4,
-  },
-  restartButton: {
-    alignSelf: 'center',
-    padding: 12,
-    marginBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 8,
-  },
-  restartText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  }
+  menuContainer: { flex: 1, backgroundColor: '#0f5132', alignItems: 'center', justifyContent: 'center' },
+  menuTitle: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 40 },
+  menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
+  menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
+  winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
+  container: { flex: 1, backgroundColor: '#0f5132' },
+  header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
+  headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, marginBottom: 24, zIndex: 10 },
+  foundationsContainer: { flexDirection: 'row', gap: 8 },
+  stockWasteContainer: { flexDirection: 'row', gap: 8 },
+  foundationPile: { width: cardWidth, height: cardHeight },
+  foundationCardWrapper: { position: 'absolute' },
+  wasteContainer: { width: cardWidth, height: cardHeight },
+  stockContainer: { width: cardWidth, height: cardHeight },
+  recycleIcon: { fontSize: 24, color: 'rgba(255,255,255,0.3)' },
+  tableauContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
+  tableauColumn: { width: cardWidth, minHeight: cardHeight },
+  tableauCardWrapper: { position: 'absolute', left: 0, right: 0 },
+  cardSlot: { width: cardWidth, height: cardHeight, borderWidth: 2, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  card: { width: cardWidth, height: cardHeight, backgroundColor: '#fff', borderRadius: 6, borderWidth: 1, borderColor: '#ccc', padding: 4 },
+  cardBack: { backgroundColor: '#1d4ed8', borderColor: '#fff', borderWidth: 2, padding: 3 },
+  cardBackPattern: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
+  cardDragging: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
+  cardValueTop: { fontSize: 14, fontWeight: 'bold' },
+  cardSuitCenter: { fontSize: 24, textAlign: 'center', marginTop: -4 },
+  hintGlow: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#fbbf24', shadowOpacity: 1, shadowRadius: 10 },
+  actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
+  actionButton: { padding: 10 },
+  actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
