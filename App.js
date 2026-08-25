@@ -236,16 +236,33 @@ export default function App() {
   };
 
   if (gameState === 'menu') {
+    const hasGame = stock.length > 0 || waste.length > 0 || tableau.some(p => p.length > 0);
     return (
       <SafeAreaView style={styles.menuContainer}>
         <StatusBar barStyle="light-content" />
         <Text style={styles.menuTitle}>Klondike Solitaire</Text>
-        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(1)}>
-          <Text style={styles.menuButtonText}>Play Draw 1</Text>
+        
+        {hasGame && (
+          <TouchableOpacity style={styles.menuButton} onPress={() => setGameState('playing')}>
+            <Text style={styles.menuButtonText}>Resume Game</Text>
+          </TouchableOpacity>
+        )}
+        
+        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount)}>
+          <Text style={styles.menuButtonText}>New Game</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(3)}>
-          <Text style={styles.menuButtonText}>Play Draw 3</Text>
-        </TouchableOpacity>
+        
+        <View style={styles.settingsBox}>
+          <Text style={styles.settingsTitle}>Settings</Text>
+          <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 1 ? 3 : 1)}>
+            <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
+            <Text style={styles.checkboxLabel}>Draw 1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 3 ? 1 : 3)}>
+            <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
+            <Text style={styles.checkboxLabel}>Draw 3</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -286,15 +303,21 @@ export default function App() {
 
         <View style={styles.stockWasteContainer}>
           <View style={styles.wasteContainer}>
-            {waste.length > 0 && (
-              <DraggableCard 
-                card={waste[waste.length - 1]} 
-                location="waste" 
-                pileIndex={0} 
-                cardIndex={waste.length - 1} 
-                hinting={hinting}
-              />
-            )}
+            {waste.slice(-3).map((card, i, arr) => (
+              <View key={card.id} style={{ position: 'absolute', left: i * 20 }}>
+                {i === arr.length - 1 ? (
+                  <DraggableCard 
+                    card={card} 
+                    location="waste" 
+                    pileIndex={0} 
+                    cardIndex={waste.length - 1} 
+                    hinting={hinting}
+                  />
+                ) : (
+                  <CardDisplay card={card} />
+                )}
+              </View>
+            ))}
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
@@ -450,6 +473,12 @@ const styles = StyleSheet.create({
   menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
   menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
+  settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: 250 },
+  settingsTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 10 },
+  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 15 },
+  checkboxChecked: { backgroundColor: '#fbbf24', borderColor: '#fbbf24' },
+  checkboxLabel: { color: '#fff', fontSize: 18 },
   container: { flex: 1, backgroundColor: '#0f5132' },
   header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
@@ -458,7 +487,7 @@ const styles = StyleSheet.create({
   stockWasteContainer: { flexDirection: 'row', gap: 8 },
   foundationPile: { width: cardWidth, height: cardHeight },
   foundationCardWrapper: { position: 'absolute' },
-  wasteContainer: { width: cardWidth, height: cardHeight },
+  wasteContainer: { width: cardWidth + 40, height: cardHeight },
   stockContainer: { width: cardWidth, height: cardHeight },
   recycleIcon: { fontSize: 24, color: 'rgba(255,255,255,0.3)' },
   tableauContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
