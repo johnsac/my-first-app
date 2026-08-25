@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated } from 'react-native';
+import { Audio } from 'expo-av';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -24,19 +25,15 @@ const shuffle = (deck, difficulty) => {
     [d[i], d[j]] = [d[j], d[i]];
   }
 
-  // Difficulty adjustment:
   if (difficulty === 'easy') {
-    // For easy, put aces at the bottom so they deal last (appear first on top of tableau/stock)
     const aces = d.filter(c => c.value === 'A');
     d = d.filter(c => c.value !== 'A');
     d.push(...aces);
   } else if (difficulty === 'hard') {
-    // For hard, bury aces at the top (so they are hidden deep in tableau)
     const aces = d.filter(c => c.value === 'A');
     d = d.filter(c => c.value !== 'A');
     d.unshift(...aces);
   }
-
   return d;
 };
 
@@ -44,6 +41,7 @@ const dropZones = {};
 let globalAttemptMove = () => false;
 let globalAutoMove = () => false;
 let globalSetDraggingPile = () => {};
+let globalPlaySound = () => {};
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
@@ -51,24 +49,53 @@ const registerDropZone = (type, index, layout) => {
 
 export default function App() {
   const [gameState, setGameState] = useState('menu'); 
-  const [drawCount, setDrawCount] = useState(1);
+  const [drawCount, setDrawCount] = useState(3); // Default to 3
   const [difficulty, setDifficulty] = useState('normal');
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [stock, setStock] = useState([]);
   const [waste, setWaste] = useState([]);
   const [foundations, setFoundations] = useState([[], [], [], []]);
   const [tableau, setTableau] = useState([[], [], [], [], [], [], []]);
   
+  const [wasteDrawCount, setWasteDrawCount] = useState(0);
   const [time, setTime] = useState(0);
   const [moves, setMoves] = useState(0);
   const [score, setScore] = useState(0);
   
   const [history, setHistory] = useState([]);
   const [hinting, setHinting] = useState(null);
+  const [activeDragLoc, setActiveDragLoc] = useState(null); 
+  const soundRef = useRef(null);
 
-  // For fixing Z-index during drag
-  const [activeDragLoc, setActiveDragLoc] = useState(null); // e.g., 'tableau-3'
   globalSetDraggingPile = setActiveDragLoc;
+
+  useEffect(() => {
+    // Setup Audio
+    const setupAudio = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=card-shuffle-7212.mp3' } // Public domain card sound
+        );
+        soundRef.current = sound;
+      } catch (e) {
+        console.log('Failed to load sound', e);
+      }
+    };
+    setupAudio();
+    return () => {
+      if (soundRef.current) soundRef.current.unloadAsync();
+    };
+  }, []);
+
+  const playSound = async () => {
+    if (!soundEnabled || !soundRef.current) return;
+    try {
+      await soundRef.current.stopAsync();
+      await soundRef.current.playAsync();
+    } catch (e) {}
+  };
+  globalPlaySound = playSound;
 
   useEffect(() => {
     let interval = null;
@@ -82,14 +109,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [gameState]);
 
-  const saveHistory = (st = stock, w = waste, f = foundations, t = tableau, sc = score, m = moves) => {
+  const saveHistory = (st = stock, w = waste, f = foundations, t = tableau, sc = score, m = moves, wdc = wasteDrawCount) => {
     const snap = {
       stock: JSON.stringify(st),
       waste: JSON.stringify(w),
       foundations: JSON.stringify(f),
       tableau: JSON.stringify(t),
       score: sc,
-      moves: m
+      moves: m,
+      wasteDrawCount: wdc
     };
     setHistory(prev => [...prev, snap]);
   };
@@ -103,12 +131,15 @@ export default function App() {
     setTableau(JSON.parse(lastState.tableau));
     setScore(lastState.score);
     setMoves(lastState.moves);
+    setWasteDrawCount(lastState.wasteDrawCount || 0);
     setHistory(history.slice(0, -1));
+    playSound();
   };
 
-  const initializeGame = (selectedDrawCount = 1, selectedDifficulty = 'normal') => {
+  const initializeGame = (selectedDrawCount, selectedDifficulty) => {
     setDrawCount(selectedDrawCount);
     setDifficulty(selectedDifficulty);
+    playSound();
     const deck = shuffle(createDeck(), selectedDifficulty);
     const newTableau = [[], [], [], [], [], [], []];
     
@@ -123,6 +154,7 @@ export default function App() {
     setTableau(newTableau);
     setStock(deck);
     setWaste([]);
+    setWasteDrawCount(0);
     setFoundations([[], [], [], []]);
     setTime(0);
     setMoves(0);
@@ -137,17 +169,12 @@ export default function App() {
   };
 
   const checkGameOverCondition = (currentStock, currentWaste, currentFoundations, currentTableau) => {
-    // If stock can be drawn or recycled
     if (currentStock.length > 0 || currentWaste.length > 0) return false;
-
-    // Check waste moves
     if (currentWaste.length > 0) {
       const card = currentWaste[currentWaste.length - 1];
       for (let f = 0; f < 4; f++) if (checkValidMove(card, 'foundation', f, false, currentFoundations, currentTableau)) return false;
       for (let t = 0; t < 7; t++) if (checkValidMove(card, 'tableau', t, false, currentFoundations, currentTableau)) return false;
     }
-
-    // Check tableau moves
     for (let tSrc = 0; tSrc < 7; tSrc++) {
       const pile = currentTableau[tSrc];
       for (let cSrc = 0; cSrc < pile.length; cSrc++) {
@@ -169,12 +196,14 @@ export default function App() {
 
   const handleStockTap = () => {
     saveHistory(stock, waste, foundations, tableau, score, moves);
+    playSound();
     
     if (stock.length === 0) {
       if (waste.length === 0) return;
       const recycled = [...waste].reverse().map(c => ({...c, isFaceUp: false}));
       setStock(recycled);
       setWaste([]);
+      setWasteDrawCount(0);
       setScore(s => Math.max(0, s - 100)); 
     } else {
       const newStock = [...stock];
@@ -187,6 +216,7 @@ export default function App() {
       }
       setStock(newStock);
       setWaste(newWaste);
+      setWasteDrawCount(limit);
     }
     
     setMoves(m => m + 1);
@@ -229,6 +259,7 @@ export default function App() {
     let isValidMove = checkValidMove(baseCard, destLocation, destPileIndex, isMultipleMoving, foundations, tableau);
 
     if (isValidMove) {
+      playSound();
       saveHistory(stock, waste, foundations, tableau, score, moves);
       let newFoundations = [...foundations];
       let newTableau = [...tableau];
@@ -250,6 +281,7 @@ export default function App() {
         const newWaste = [...waste];
         newWaste.pop();
         setWaste(newWaste);
+        setWasteDrawCount(newWaste.length === 0 ? 0 : Math.max(1, wasteDrawCount - 1));
       } else if (srcLocation === 'tableau') {
         newTableau[srcPileIndex] = newTableau[srcPileIndex].slice(0, srcCardIndex);
         if (newTableau[srcPileIndex].length > 0 && !newTableau[srcPileIndex][newTableau[srcPileIndex].length - 1].isFaceUp) {
@@ -265,7 +297,6 @@ export default function App() {
       setFoundations(newFoundations);
       if (destLocation === 'foundation') checkWinCondition(newFoundations);
       
-      // Delay game over check slightly to let state update
       setTimeout(() => {
         if (checkGameOverCondition(stock, waste, newFoundations, newTableau)) {
           setGameState('gameover');
@@ -356,7 +387,6 @@ export default function App() {
       setHinting(possibleMove);
       setTimeout(() => setHinting(null), 1500);
     } else if (stock.length > 0 || waste.length > 0) {
-      // Suggest drawing a card
       setHinting({ destType: 'stock', destIndex: 0 });
       setTimeout(() => setHinting(null), 1500);
     } else {
@@ -398,10 +428,14 @@ export default function App() {
               <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Draw 3</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setSoundEnabled(!soundEnabled)}>
+              <View style={[styles.checkbox, soundEnabled && styles.checkboxChecked]} />
+              <Text style={styles.checkboxLabel}>Sound</Text>
+            </TouchableOpacity>
           </View>
           
           <Text style={[styles.settingsTitle, {marginTop: 20}]}>Difficulty</Text>
-          <View style={styles.settingGroup}>
+          <View style={styles.settingColumn}>
             {['easy', 'normal', 'hard'].map(diff => (
               <TouchableOpacity key={diff} style={styles.checkboxRow} onPress={() => setDifficulty(diff)}>
                 <View style={[styles.checkbox, difficulty === diff && styles.checkboxChecked]} />
@@ -457,8 +491,8 @@ export default function App() {
         </View>
 
         <View style={styles.stockWasteContainer}>
-          <View style={[styles.wasteContainer, { zIndex: activeDragLoc === 'waste-0' ? 999 : 1 }]}>
-            {waste.slice(-3).map((card, i, arr) => (
+          <View style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}>
+            {waste.slice(-Math.max(1, wasteDrawCount)).map((card, i, arr) => (
               <View key={card.id} style={{ position: 'absolute', left: i * 20 }}>
                 {i === arr.length - 1 ? (
                   <DraggableCard 
@@ -525,7 +559,13 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc }
   };
 
   const isHintDest = hinting && hinting.destType === type && hinting.destIndex === index;
-  const isDraggingHere = activeDragLoc === `${type}-${index}`;
+  const isDraggingHere = activeDragLoc && activeDragLoc.startsWith(`${type}-${index}`);
+  
+  let draggingCardIndex = -1;
+  if (isDraggingHere) {
+    draggingCardIndex = parseInt(activeDragLoc.split('-')[2]);
+  }
+
   let currentTop = 0;
 
   return (
@@ -539,6 +579,11 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc }
         const topPos = currentTop;
         if (isTableau) {
           currentTop += card.isFaceUp ? 22 : 11;
+        }
+
+        // Hide cards that are visually grabbed by the DraggableCard above them
+        if (isDraggingHere && cardIndex > draggingCardIndex) {
+          return null;
         }
 
         const isMovable = card.isFaceUp;
@@ -575,9 +620,10 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
       onPanResponderGrant: () => {
         setIsDragging(true);
-        globalSetDraggingPile(`${location}-${pileIndex}`);
+        globalSetDraggingPile(`${location}-${pileIndex}-${cardIndex}`);
         pan.setOffset({ x: pan.x._value, y: pan.y._value });
         pan.setValue({ x: 0, y: 0 });
+        globalPlaySound();
       },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
       onPanResponderRelease: (e, gesture) => {
@@ -662,9 +708,10 @@ const styles = StyleSheet.create({
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
   settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: 250 },
   settingsTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  settingGroup: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 10 },
-  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 8 },
+  settingGroup: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap' },
+  settingColumn: { flexDirection: 'column', alignItems: 'flex-start', paddingLeft: 20 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 10 },
   checkboxChecked: { backgroundColor: '#fbbf24', borderColor: '#fbbf24' },
   checkboxLabel: { color: '#fff', fontSize: 16, marginRight: 10 },
   container: { flex: 1, backgroundColor: '#0f5132' },
