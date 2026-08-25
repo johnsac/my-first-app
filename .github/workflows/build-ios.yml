@@ -1,0 +1,34 @@
+name: Build Unsigned iOS App
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - run: npm install
+      - run: npx expo prebuild --platform ios --clean
+      - run: cd ios && pod install
+        
+      - name: Build Unsigned Archive
+        run: |
+          cd ios
+          WORKSPACE=$(ls -1 | grep '\.xcworkspace$')
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO -destination 'generic/platform=iOS' archive -archivePath ../build/app.xcarchive
+          
+      - name: Package into IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/app.xcarchive/Products/Applications/*.app Payload/
+          zip -r app.ipa Payload
+          
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-unsigned-app
+          path: app.ipa
