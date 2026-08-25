@@ -798,36 +798,22 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
     );
   }
   const color = isRed(card.suit) ? '#ef4444' : '#111827';
-  
-  // Dynamic scaling for iPads and larger screens
-  const topFontSize = cardWidth * 0.35;
-  const bottomFontSize = cardWidth * 0.8;
-  
   return (
-    <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow, { padding: 0, overflow: 'hidden' }]}>
-      
-      {/* Upper 1/3 */}
-      <View style={{ height: '35%', paddingHorizontal: 4, paddingTop: 2 }}>
-        <Text style={[styles.cardValueTop, { color, fontSize: topFontSize, lineHeight: topFontSize }]} numberOfLines={1} adjustsFontSizeToFit>
-          {card.value}{card.suit}
-        </Text>
-      </View>
-
-      {/* Lower 2/3 */}
-      <View style={{ height: '65%', width: '100%', overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end' }}>
-        {FACE_IMAGES[card.value] ? (
+    <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow]}>
+      <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
+      {FACE_IMAGES[card.value] ? (
+        <View style={styles.cardSuitContainer}>
           <Image 
             source={FACE_IMAGES[card.value]} 
-            style={{ width: '100%', height: '200%', position: 'absolute', top: 0 }}
-            resizeMode="cover"
+            style={{ width: '95%', height: '95%', borderRadius: 2 }}
+            resizeMode="contain"
           />
-        ) : (
-          <Text style={[styles.cardSuitCenter, { color, fontSize: bottomFontSize, lineHeight: bottomFontSize, marginBottom: -bottomFontSize * 0.1 }]} adjustsFontSizeToFit>
-            {card.suit}
-          </Text>
-        )}
-      </View>
-      
+        </View>
+      ) : (
+        <View style={styles.cardSuitContainer}>
+          <Text style={[styles.cardSuitCenter, { color }]}>{card.suit}</Text>
+        </View>
+      )}
     </View>
   );
 };
