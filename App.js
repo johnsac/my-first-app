@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, Alert } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -17,18 +17,33 @@ const createDeck = () => {
   return deck;
 };
 
-const shuffle = (deck) => {
+const shuffle = (deck, difficulty) => {
   let d = [...deck];
   for (let i = d.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
   }
+
+  // Difficulty adjustment:
+  if (difficulty === 'easy') {
+    // For easy, put aces at the bottom so they deal last (appear first on top of tableau/stock)
+    const aces = d.filter(c => c.value === 'A');
+    d = d.filter(c => c.value !== 'A');
+    d.push(...aces);
+  } else if (difficulty === 'hard') {
+    // For hard, bury aces at the top (so they are hidden deep in tableau)
+    const aces = d.filter(c => c.value === 'A');
+    d = d.filter(c => c.value !== 'A');
+    d.unshift(...aces);
+  }
+
   return d;
 };
 
 const dropZones = {};
 let globalAttemptMove = () => false;
 let globalAutoMove = () => false;
+let globalSetDraggingPile = () => {};
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
@@ -37,6 +52,7 @@ const registerDropZone = (type, index, layout) => {
 export default function App() {
   const [gameState, setGameState] = useState('menu'); 
   const [drawCount, setDrawCount] = useState(1);
+  const [difficulty, setDifficulty] = useState('normal');
   
   const [stock, setStock] = useState([]);
   const [waste, setWaste] = useState([]);
@@ -50,13 +66,17 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [hinting, setHinting] = useState(null);
 
+  // For fixing Z-index during drag
+  const [activeDragLoc, setActiveDragLoc] = useState(null); // e.g., 'tableau-3'
+  globalSetDraggingPile = setActiveDragLoc;
+
   useEffect(() => {
     let interval = null;
     if (gameState === 'playing') {
       interval = setInterval(() => {
         setTime(t => t + 1);
       }, 1000);
-    } else if (gameState !== 'playing') {
+    } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
@@ -86,9 +106,10 @@ export default function App() {
     setHistory(history.slice(0, -1));
   };
 
-  const initializeGame = (selectedDrawCount = 1) => {
+  const initializeGame = (selectedDrawCount = 1, selectedDifficulty = 'normal') => {
     setDrawCount(selectedDrawCount);
-    const deck = shuffle(createDeck());
+    setDifficulty(selectedDifficulty);
+    const deck = shuffle(createDeck(), selectedDifficulty);
     const newTableau = [[], [], [], [], [], [], []];
     
     for (let i = 0; i < 7; i++) {
@@ -115,11 +136,42 @@ export default function App() {
     if (isWin) setGameState('won');
   };
 
+  const checkGameOverCondition = (currentStock, currentWaste, currentFoundations, currentTableau) => {
+    // If stock can be drawn or recycled
+    if (currentStock.length > 0 || currentWaste.length > 0) return false;
+
+    // Check waste moves
+    if (currentWaste.length > 0) {
+      const card = currentWaste[currentWaste.length - 1];
+      for (let f = 0; f < 4; f++) if (checkValidMove(card, 'foundation', f, false, currentFoundations, currentTableau)) return false;
+      for (let t = 0; t < 7; t++) if (checkValidMove(card, 'tableau', t, false, currentFoundations, currentTableau)) return false;
+    }
+
+    // Check tableau moves
+    for (let tSrc = 0; tSrc < 7; tSrc++) {
+      const pile = currentTableau[tSrc];
+      for (let cSrc = 0; cSrc < pile.length; cSrc++) {
+        if (!pile[cSrc].isFaceUp) continue;
+        const card = pile[cSrc];
+        const isMultiple = cSrc < pile.length - 1;
+        if (!isMultiple) {
+          for (let f = 0; f < 4; f++) if (checkValidMove(card, 'foundation', f, false, currentFoundations, currentTableau)) return false;
+        }
+        for (let tDest = 0; tDest < 7; tDest++) {
+          if (tSrc === tDest) continue;
+          if (card.value === 'K' && cSrc === 0 && currentTableau[tDest].length === 0) continue;
+          if (checkValidMove(card, 'tableau', tDest, isMultiple, currentFoundations, currentTableau)) return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const handleStockTap = () => {
     saveHistory(stock, waste, foundations, tableau, score, moves);
-    setMoves(m => m + 1);
     
     if (stock.length === 0) {
+      if (waste.length === 0) return;
       const recycled = [...waste].reverse().map(c => ({...c, isFaceUp: false}));
       setStock(recycled);
       setWaste([]);
@@ -136,6 +188,8 @@ export default function App() {
       setStock(newStock);
       setWaste(newWaste);
     }
+    
+    setMoves(m => m + 1);
   };
 
   const checkValidMove = (baseCard, destLocation, destPileIndex, isMultipleMoving, currentFoundations, currentTableau) => {
@@ -178,20 +232,19 @@ export default function App() {
       saveHistory(stock, waste, foundations, tableau, score, moves);
       let newFoundations = [...foundations];
       let newTableau = [...tableau];
-      let scoreChange = 0;
-
+      
+      let nextScore = score;
       if (destLocation === 'foundation') {
         newFoundations[destPileIndex] = [...newFoundations[destPileIndex], baseCard];
-        if (srcLocation === 'tableau') scoreChange = 10;
-        if (srcLocation === 'waste') scoreChange = 15;
+        if (srcLocation === 'tableau') nextScore += 10;
+        if (srcLocation === 'waste') nextScore += 15;
       } else if (destLocation === 'tableau') {
         newTableau[destPileIndex] = [...newTableau[destPileIndex], ...movingCards];
-        if (srcLocation === 'waste') scoreChange = 5;
-        if (srcLocation === 'foundation') scoreChange = -15;
+        if (srcLocation === 'waste') nextScore += 5;
+        if (srcLocation === 'foundation') nextScore -= 15;
       }
 
       setMoves(m => m + 1);
-      setScore(s => Math.max(0, s + scoreChange));
 
       if (srcLocation === 'waste') {
         const newWaste = [...waste];
@@ -201,15 +254,23 @@ export default function App() {
         newTableau[srcPileIndex] = newTableau[srcPileIndex].slice(0, srcCardIndex);
         if (newTableau[srcPileIndex].length > 0 && !newTableau[srcPileIndex][newTableau[srcPileIndex].length - 1].isFaceUp) {
           newTableau[srcPileIndex][newTableau[srcPileIndex].length - 1].isFaceUp = true;
-          setScore(s => s + 5);
+          nextScore += 5;
         }
       } else if (srcLocation === 'foundation') {
         newFoundations[srcPileIndex].pop();
       }
 
+      setScore(Math.max(0, nextScore));
       setTableau(newTableau);
       setFoundations(newFoundations);
       if (destLocation === 'foundation') checkWinCondition(newFoundations);
+      
+      // Delay game over check slightly to let state update
+      setTimeout(() => {
+        if (checkGameOverCondition(stock, waste, newFoundations, newTableau)) {
+          setGameState('gameover');
+        }
+      }, 500);
       return true;
     }
     return false;
@@ -240,7 +301,6 @@ export default function App() {
   const handleHint = () => {
     let possibleMove = null;
 
-    // Check waste to foundation
     if (waste.length > 0) {
       const card = waste[waste.length - 1];
       for (let f = 0; f < 4; f++) {
@@ -259,7 +319,6 @@ export default function App() {
       }
     }
 
-    // Check tableau to foundation/tableau
     if (!possibleMove) {
       for (let tSrc = 0; tSrc < 7; tSrc++) {
         const pile = tableau[tSrc];
@@ -281,9 +340,7 @@ export default function App() {
 
           for (let tDest = 0; tDest < 7; tDest++) {
             if (tSrc === tDest) continue;
-            // Don't suggest moving a King to an empty space if it's already at the bottom
             if (card.value === 'K' && cSrc === 0 && tableau[tDest].length === 0) continue;
-
             if (checkValidMove(card, 'tableau', tDest, isMultiple, foundations, tableau)) {
               possibleMove = { srcId: card.id, destType: 'tableau', destIndex: tDest };
               break;
@@ -298,6 +355,12 @@ export default function App() {
     if (possibleMove) {
       setHinting(possibleMove);
       setTimeout(() => setHinting(null), 1500);
+    } else if (stock.length > 0 || waste.length > 0) {
+      // Suggest drawing a card
+      setHinting({ destType: 'stock', destIndex: 0 });
+      setTimeout(() => setHinting(null), 1500);
+    } else {
+      setGameState('gameover');
     }
   };
 
@@ -320,34 +383,49 @@ export default function App() {
           </TouchableOpacity>
         )}
         
-        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount)}>
+        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount, difficulty)}>
           <Text style={styles.menuButtonText}>New Game</Text>
         </TouchableOpacity>
         
         <View style={styles.settingsBox}>
           <Text style={styles.settingsTitle}>Settings</Text>
-          <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 1 ? 3 : 1)}>
-            <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
-            <Text style={styles.checkboxLabel}>Draw 1</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 3 ? 1 : 3)}>
-            <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
-            <Text style={styles.checkboxLabel}>Draw 3</Text>
-          </TouchableOpacity>
+          <View style={styles.settingGroup}>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 1 ? 3 : 1)}>
+              <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
+              <Text style={styles.checkboxLabel}>Draw 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 3 ? 1 : 3)}>
+              <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
+              <Text style={styles.checkboxLabel}>Draw 3</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={[styles.settingsTitle, {marginTop: 20}]}>Difficulty</Text>
+          <View style={styles.settingGroup}>
+            {['easy', 'normal', 'hard'].map(diff => (
+              <TouchableOpacity key={diff} style={styles.checkboxRow} onPress={() => setDifficulty(diff)}>
+                <View style={[styles.checkbox, difficulty === diff && styles.checkboxChecked]} />
+                <Text style={styles.checkboxLabel}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (gameState === 'won') {
+  if (gameState === 'won' || gameState === 'gameover') {
     return (
       <SafeAreaView style={styles.menuContainer}>
         <StatusBar barStyle="light-content" />
-        <Text style={styles.menuTitle}>You Won!</Text>
+        <Text style={styles.menuTitle}>{gameState === 'won' ? 'You Won!' : 'No Moves Left!'}</Text>
         <Text style={styles.winStats}>Score: {score}</Text>
         <Text style={styles.winStats}>Time: {formatTime(time)}</Text>
         <Text style={styles.winStats}>Moves: {moves}</Text>
-        <TouchableOpacity style={[styles.menuButton, {marginTop: 40}]} onPress={() => setGameState('menu')}>
+        <TouchableOpacity style={[styles.menuButton, {marginTop: 40}]} onPress={() => initializeGame(drawCount, difficulty)}>
+          <Text style={styles.menuButtonText}>Play Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.menuButton, {marginTop: 10}]} onPress={() => setGameState('menu')}>
           <Text style={styles.menuButtonText}>Main Menu</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -367,12 +445,19 @@ export default function App() {
       <View style={styles.topRow}>
         <View style={styles.foundationsContainer}>
           {foundations.map((f, index) => (
-            <DroppablePile key={`f-${index}`} type="foundation" index={index} cards={f} hinting={hinting} />
+            <DroppablePile 
+              key={`f-${index}`} 
+              type="foundation" 
+              index={index} 
+              cards={f} 
+              hinting={hinting} 
+              activeDragLoc={activeDragLoc} 
+            />
           ))}
         </View>
 
         <View style={styles.stockWasteContainer}>
-          <View style={styles.wasteContainer}>
+          <View style={[styles.wasteContainer, { zIndex: activeDragLoc === 'waste-0' ? 999 : 1 }]}>
             {waste.slice(-3).map((card, i, arr) => (
               <View key={card.id} style={{ position: 'absolute', left: i * 20 }}>
                 {i === arr.length - 1 ? (
@@ -391,11 +476,11 @@ export default function App() {
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
-              <View style={[styles.card, styles.cardBack]}>
+              <View style={[styles.card, styles.cardBack, hinting?.destType === 'stock' && styles.hintGlowDest]}>
                 <View style={styles.cardBackPattern} />
               </View>
             ) : (
-              <View style={styles.cardSlot}>
+              <View style={[styles.cardSlot, hinting?.destType === 'stock' && styles.hintGlowDest]}>
                 <Text style={styles.recycleIcon}>↻</Text>
               </View>
             )}
@@ -405,7 +490,15 @@ export default function App() {
 
       <View style={styles.tableauContainer}>
         {tableau.map((pile, pileIndex) => (
-          <DroppablePile key={`t-${pileIndex}`} type="tableau" index={pileIndex} cards={pile} isTableau={true} hinting={hinting} />
+          <DroppablePile 
+            key={`t-${pileIndex}`} 
+            type="tableau" 
+            index={pileIndex} 
+            cards={pile} 
+            isTableau={true} 
+            hinting={hinting} 
+            activeDragLoc={activeDragLoc} 
+          />
         ))}
       </View>
       
@@ -424,7 +517,7 @@ export default function App() {
   );
 }
 
-const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
+const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc }) => {
   const handleLayout = (e) => {
     e.target.measure((x, y, width, height, pageX, pageY) => {
       registerDropZone(type, index, { x: pageX, y: pageY, width, height: isTableau ? Math.max(height, cardHeight * 3) : height });
@@ -432,15 +525,20 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting }) => {
   };
 
   const isHintDest = hinting && hinting.destType === type && hinting.destIndex === index;
+  const isDraggingHere = activeDragLoc === `${type}-${index}`;
   let currentTop = 0;
 
   return (
-    <View style={isTableau ? styles.tableauColumn : styles.foundationPile} onLayout={handleLayout} collapsable={false}>
+    <View 
+      style={[isTableau ? styles.tableauColumn : styles.foundationPile, { zIndex: isDraggingHere ? 999 : 1 }]} 
+      onLayout={handleLayout} 
+      collapsable={false}
+    >
       {cards.length === 0 && <View style={[styles.cardSlot, isHintDest && styles.hintGlowDest]} />}
       {cards.map((card, cardIndex) => {
         const topPos = currentTop;
         if (isTableau) {
-          currentTop += card.isFaceUp ? 22 : 11; // Reduced spacing for face down cards
+          currentTop += card.isFaceUp ? 22 : 11;
         }
 
         const isMovable = card.isFaceUp;
@@ -477,21 +575,21 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
       onPanResponderGrant: () => {
         setIsDragging(true);
+        globalSetDraggingPile(`${location}-${pileIndex}`);
         pan.setOffset({ x: pan.x._value, y: pan.y._value });
         pan.setValue({ x: 0, y: 0 });
       },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
       onPanResponderRelease: (e, gesture) => {
         setIsDragging(false);
+        globalSetDraggingPile(null);
         pan.flattenOffset();
         
-        // Double tap detection
         const now = Date.now();
         if (Math.abs(gesture.dx) < 5 && Math.abs(gesture.dy) < 5) {
           if (now - lastTap.current < 300) {
-            // It's a double tap
             if (globalAutoMove(location, pileIndex, cardIndex)) {
-              return; // Move handled
+              return; 
             }
           }
           lastTap.current = now;
@@ -564,10 +662,11 @@ const styles = StyleSheet.create({
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
   settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: 250 },
   settingsTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  settingGroup: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 10 },
-  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 15 },
+  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 8 },
   checkboxChecked: { backgroundColor: '#fbbf24', borderColor: '#fbbf24' },
-  checkboxLabel: { color: '#fff', fontSize: 18 },
+  checkboxLabel: { color: '#fff', fontSize: 16, marginRight: 10 },
   container: { flex: 1, backgroundColor: '#0f5132' },
   header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
