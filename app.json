@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "John's Test App",
+    "slug": "my-first-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/custom-icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myname.myfirstapp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
