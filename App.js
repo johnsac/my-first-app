@@ -462,21 +462,25 @@ export default function App() {
 
         <View style={styles.stockWasteContainer}>
           <View style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}>
-            {waste.slice(-Math.max(1, wasteDrawCount)).map((card, i, arr) => (
-              <View key={card.id} style={{ position: 'absolute', left: i * 20 }}>
-                {i === arr.length - 1 ? (
-                  <DraggableCard 
-                    card={card} 
-                    location="waste" 
-                    pileIndex={0} 
-                    cardIndex={waste.length - 1} 
-                    hinting={hinting}
-                  />
-                ) : (
-                  <CardDisplay card={card} hinting={hinting?.srcId === card.id} />
-                )}
-              </View>
-            ))}
+            {(() => {
+              const visibleCards = waste.slice(-Math.max(1, wasteDrawCount));
+              const offset = 40 - (Math.max(0, visibleCards.length - 1) * 20);
+              return visibleCards.map((card, i, arr) => (
+                <View key={card.id} style={{ position: 'absolute', left: offset + i * 20 }}>
+                  {i === arr.length - 1 ? (
+                    <DraggableCard 
+                      card={card} 
+                      location="waste" 
+                      pileIndex={0} 
+                      cardIndex={waste.length - 1} 
+                      hinting={hinting}
+                    />
+                  ) : (
+                    <CardDisplay card={card} hinting={hinting?.srcId === card.id} />
+                  )}
+                </View>
+              ));
+            })()}
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
