@@ -75,6 +75,10 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [hinting, setHinting] = useState(null);
   const [activeDragLoc, setActiveDragLoc] = useState(null); 
+  const [isCascading, setIsCascading] = useState(false);
+  const [cascadeQueue, setCascadeQueue] = useState([]);
+  const [flyingData, setFlyingData] = useState(null);
+  const flyAnim = useRef(new Animated.ValueXY()).current;
 
   globalSetDraggingPile = setActiveDragLoc;
 
@@ -304,7 +308,9 @@ export default function App() {
 
     for (let f = 0; f < 4; f++) {
       if (checkValidMove(baseCard, 'foundation', f, false, foundations, tableau)) {
-        return attemptMove(srcLocation, srcPileIndex, srcCardIndex, 'foundation', f);
+        setCascadeQueue([{ srcLocation, srcPileIndex, srcCardIndex, destLocation: 'foundation', destPileIndex: f, card: baseCard }]);
+        setIsCascading(true);
+        return true;
       }
     }
     return false;
@@ -312,6 +318,80 @@ export default function App() {
 
   globalAttemptMove = attemptMove;
   globalAutoMove = autoMoveToFoundation;
+
+  useEffect(() => {
+    if (!isCascading || flyingData) return;
+
+    let nextMove = null;
+    if (cascadeQueue.length > 0) {
+      nextMove = cascadeQueue[0];
+      setCascadeQueue(prev => prev.slice(1));
+    } else {
+      if (waste.length > 0) {
+        const c = waste[waste.length - 1];
+        for (let f = 0; f < 4; f++) {
+          if (checkValidMove(c, 'foundation', f, false, foundations, tableau)) {
+            nextMove = { srcLocation: 'waste', srcPileIndex: 0, srcCardIndex: waste.length - 1, destLocation: 'foundation', destPileIndex: f, card: c };
+            break;
+          }
+        }
+      }
+      if (!nextMove) {
+        for (let t = 0; t < 7; t++) {
+          const pile = tableau[t];
+          if (pile.length > 0) {
+            const c = pile[pile.length - 1];
+            if (c.isFaceUp) {
+              for (let f = 0; f < 4; f++) {
+                if (checkValidMove(c, 'foundation', f, false, foundations, tableau)) {
+                  nextMove = { srcLocation: 'tableau', srcPileIndex: t, srcCardIndex: pile.length - 1, destLocation: 'foundation', destPileIndex: f, card: c };
+                  break;
+                }
+              }
+            }
+          }
+          if (nextMove) break;
+        }
+      }
+    }
+
+    if (nextMove) {
+      const destZone = dropZones[`foundation-${nextMove.destPileIndex}`];
+      let startX = 0, startY = 0;
+      if (nextMove.srcLocation === 'waste') {
+        const wasteZone = dropZones[`waste-0`];
+        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, wasteDrawCount) - 1) * 25;
+        startY = wasteZone?.layout?.y || 0;
+      } else if (nextMove.srcLocation === 'tableau') {
+        const tZone = dropZones[`tableau-${nextMove.srcPileIndex}`];
+        startX = tZone?.layout?.x || 0;
+        startY = tZone?.layout?.y || 0;
+        const pile = tableau[nextMove.srcPileIndex];
+        let currentTop = 0;
+        for (let i = 0; i < nextMove.srcCardIndex; i++) {
+          currentTop += pile[i].isFaceUp ? 22 : 11;
+        }
+        startY += currentTop;
+      }
+      
+      const endX = destZone?.layout?.x || 0;
+      const endY = destZone?.layout?.y || 0;
+      
+      flyAnim.setValue({ x: startX, y: startY });
+      setFlyingData(nextMove);
+      
+      Animated.timing(flyAnim, {
+        toValue: { x: endX, y: endY },
+        duration: 250,
+        useNativeDriver: false
+      }).start(() => {
+        attemptMove(nextMove.srcLocation, nextMove.srcPileIndex, nextMove.srcCardIndex, nextMove.destLocation, nextMove.destPileIndex);
+        setFlyingData(null);
+      });
+    } else {
+      setIsCascading(false);
+    }
+  }, [isCascading, flyingData, tableau, foundations, waste]);
 
   const handleHint = () => {
     let possibleMoves = [];
@@ -456,14 +536,15 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Score: {score}</Text>
-        <Text style={styles.headerText}>Time: {formatTime(time)}</Text>
-        <Text style={styles.headerText}>Moves: {moves}</Text>
-      </View>
+    <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" />
+        
+        <View style={styles.header}>
+          <Text style={styles.headerText}>Score: {score}</Text>
+          <Text style={styles.headerText}>Time: {formatTime(time)}</Text>
+          <Text style={styles.headerText}>Moves: {moves}</Text>
+        </View>
       
       <View style={[styles.topRow, { zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
         <View style={styles.foundationsContainer}>
@@ -479,26 +560,29 @@ export default function App() {
           ))}
         </View>
 
-        <View style={styles.stockWasteContainer}>
-          <View style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}>
+             <View style={styles.stockWasteContainer}>
+          <View 
+            style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}
+            onLayout={(e) => {
+              e.target.measure((x, y, width, height, pageX, pageY) => {
+                registerDropZone('waste', 0, { x: pageX, y: pageY, width, height });
+              });
+            }}
+          >
             {(() => {
-              const visibleCards = waste.slice(-Math.max(1, wasteDrawCount));
-              const offset = 40 - (Math.max(0, visibleCards.length - 1) * 20);
-              return visibleCards.map((card, i, arr) => (
-                <View key={card.id} style={{ position: 'absolute', left: offset + i * 20 }}>
-                  {i === arr.length - 1 ? (
-                    <DraggableCard 
-                      card={card} 
-                      location="waste" 
-                      pileIndex={0} 
-                      cardIndex={waste.length - 1} 
-                      hinting={hinting}
-                    />
-                  ) : (
-                    <CardDisplay card={card} hinting={hinting?.srcId === card.id} />
-                  )}
-                </View>
-              ));
+              const startIdx = Math.max(0, waste.length - wasteDrawCount);
+              const visibleWaste = waste.slice(startIdx);
+              return visibleWaste.map((card, i) => {
+                const actualIndex = startIdx + i;
+                if (flyingData && flyingData.srcLocation === 'waste' && flyingData.srcCardIndex === actualIndex) {
+                  return null;
+                }
+                return (
+                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * 25, zIndex: i}]}>
+                    <DraggableCard card={card} location="waste" pileIndex={0} cardIndex={actualIndex} hinting={hinting} />
+                  </View>
+                );
+              });
             })()}
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
@@ -525,6 +609,7 @@ export default function App() {
             isTableau={true} 
             hinting={hinting} 
             activeDragLoc={activeDragLoc} 
+            flyingData={flyingData}
           />
         ))}
       </View>
@@ -540,11 +625,20 @@ export default function App() {
           <Text style={styles.actionText}>Menu</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+      {flyingData && (
+        <Animated.View style={[
+          { position: 'absolute', zIndex: 9999, width: cardWidth, height: cardHeight },
+          flyAnim.getLayout()
+        ]}>
+          <CardDisplay card={flyingData.card} />
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
-const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc }) => {
+const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc, flyingData }) => {
   const handleLayout = (e) => {
     e.target.measure((x, y, width, height, pageX, pageY) => {
       registerDropZone(type, index, { x: pageX, y: pageY, width, height: isTableau ? Math.max(height, cardHeight * 3) : height });
@@ -577,6 +671,11 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc }
         // Hide cards that are visually grabbed by the DraggableCard above them
         if (isDraggingHere && cardIndex > draggingCardIndex) {
           return null;
+        }
+
+        // Hide flying card
+        if (flyingData && flyingData.srcLocation === type && flyingData.srcPileIndex === index && flyingData.srcCardIndex === cardIndex) {
+          return null; 
         }
 
         const isMovable = card.isFaceUp;
@@ -699,20 +798,36 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
     );
   }
   const color = isRed(card.suit) ? '#ef4444' : '#111827';
+  
+  // Dynamic scaling for iPads and larger screens
+  const topFontSize = cardWidth * 0.35;
+  const bottomFontSize = cardWidth * 0.8;
+  
   return (
-    <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow]}>
-      <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
-      {FACE_IMAGES[card.value] ? (
-        <Image 
-          source={FACE_IMAGES[card.value]} 
-          style={{ width: '65%', height: '55%', alignSelf: 'center', marginTop: 8, borderRadius: 2 }}
-          resizeMode="contain"
-        />
-      ) : (
-        <View style={styles.cardSuitContainer}>
-          <Text style={[styles.cardSuitCenter, { color }]}>{card.suit}</Text>
-        </View>
-      )}
+    <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow, { padding: 0, overflow: 'hidden' }]}>
+      
+      {/* Upper 1/3 */}
+      <View style={{ height: '35%', paddingHorizontal: 4, paddingTop: 2 }}>
+        <Text style={[styles.cardValueTop, { color, fontSize: topFontSize, lineHeight: topFontSize }]} numberOfLines={1} adjustsFontSizeToFit>
+          {card.value}{card.suit}
+        </Text>
+      </View>
+
+      {/* Lower 2/3 */}
+      <View style={{ height: '65%', width: '100%', overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end' }}>
+        {FACE_IMAGES[card.value] ? (
+          <Image 
+            source={FACE_IMAGES[card.value]} 
+            style={{ width: '100%', height: '200%', position: 'absolute', top: 0 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={[styles.cardSuitCenter, { color, fontSize: bottomFontSize, lineHeight: bottomFontSize, marginBottom: -bottomFontSize * 0.1 }]} adjustsFontSizeToFit>
+            {card.suit}
+          </Text>
+        )}
+      </View>
+      
     </View>
   );
 };
