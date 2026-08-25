@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -139,7 +139,7 @@ export default function App() {
 
   const checkWinCondition = (newFoundations) => {
     const isWin = newFoundations.every(f => f.length === 13);
-    if (isWin) setGameState('won');
+    if (isWin) setGameState('animating_win');
   };
 
   const checkGameOverCondition = (currentStock, currentWaste, currentFoundations, currentTableau) => {
@@ -380,6 +380,7 @@ export default function App() {
       <SafeAreaView style={styles.menuContainer}>
         <StatusBar barStyle="light-content" />
         <Text style={styles.menuTitle}>Klondike Solitaire</Text>
+        <Text style={styles.menuSubtitle}>by John Sacco</Text>
         
         {hasGame && (
           <TouchableOpacity style={styles.menuButton} onPress={() => setGameState('playing')}>
@@ -392,13 +393,13 @@ export default function App() {
         </TouchableOpacity>
         
         <View style={styles.settingsBox}>
-          <Text style={styles.settingsTitle}>Settings</Text>
-          <View style={styles.settingGroup}>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 1 ? 3 : 1)}>
+          <Text style={styles.settingsTitle}>Draw Mode</Text>
+          <View style={styles.settingColumn}>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(1)}>
               <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Draw 1</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 3 ? 1 : 3)}>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(3)}>
               <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Draw 3</Text>
             </TouchableOpacity>
@@ -416,6 +417,10 @@ export default function App() {
         </View>
       </SafeAreaView>
     );
+  }
+
+  if (gameState === 'animating_win') {
+    return <WinAnimation foundations={foundations} onComplete={() => setGameState('won')} />;
   }
 
   if (gameState === 'won' || gameState === 'gameover') {
@@ -601,14 +606,14 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
       },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
       onPanResponderRelease: (e, gesture) => {
-        setIsDragging(false);
-        globalSetDraggingPile(null);
         pan.flattenOffset();
         
         const now = Date.now();
         if (Math.abs(gesture.dx) < 5 && Math.abs(gesture.dy) < 5) {
           if (now - lastTap.current < 300) {
             if (globalAutoMove(location, pileIndex, cardIndex)) {
+              setIsDragging(false);
+              globalSetDraggingPile(null);
               return; 
             }
           }
@@ -633,7 +638,13 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         }
 
         if (!moved) {
-          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start();
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start(() => {
+            setIsDragging(false);
+            globalSetDraggingPile(null);
+          });
+        } else {
+          setIsDragging(false);
+          globalSetDraggingPile(null);
         }
       }
     })
@@ -671,12 +682,101 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
 };
 
 const windowWidth = Dimensions.get('window').width;
+const windowHeight = Dimensions.get('window').height;
 const cardWidth = (windowWidth - 32 - 30) / 7; 
 const cardHeight = cardWidth * 1.4;
 
+const WinAnimation = ({ foundations, onComplete }) => {
+  const [activeCards, setActiveCards] = useState([]);
+  const speedRef = useRef(1);
+  const engineRef = useRef(null);
+  const allCards = useRef([]);
+  
+  useEffect(() => {
+    let cards = [];
+    for (let f = 0; f < 4; f++) {
+      for (let c = 0; c < foundations[f].length; c++) {
+        cards.push({
+          card: foundations[f][c],
+          x: 16 + f * (cardWidth + 8),
+          y: 60,
+          vx: (Math.random() - 0.5) * 15,
+          vy: -Math.random() * 15 - 5,
+          active: false
+        });
+      }
+    }
+    allCards.current = cards.reverse(); 
+    
+    let lastTime = Date.now();
+    let spawnTimer = 0;
+
+    const loop = () => {
+      const now = Date.now();
+      const dt = now - lastTime;
+      lastTime = now;
+      const speed = speedRef.current;
+      
+      spawnTimer += dt * speed;
+      if (spawnTimer > 150 && allCards.current.length > 0) {
+        spawnTimer = 0;
+        const next = allCards.current.shift();
+        if (next) {
+          next.active = true;
+          setActiveCards(prev => [...prev, next]);
+        }
+      }
+      
+      setActiveCards(prev => {
+        let updated = false;
+        const nextState = prev.map(c => {
+          if (!c.active) return c;
+          updated = true;
+          c.vy += 0.8 * speed; 
+          c.x += c.vx * speed;
+          c.y += c.vy * speed;
+          
+          if (c.y > windowHeight - cardHeight) {
+            c.y = windowHeight - cardHeight;
+            c.vy = -Math.abs(c.vy) * 0.75;
+          }
+          return c;
+        });
+        
+        const filtered = nextState.filter(c => c.x > -cardWidth && c.x < windowWidth);
+        
+        if (filtered.length === 0 && allCards.current.length === 0) {
+          onComplete();
+        } else {
+          engineRef.current = requestAnimationFrame(loop);
+        }
+        
+        return updated ? [...filtered] : prev;
+      });
+    };
+    
+    engineRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(engineRef.current);
+  }, []);
+
+  return (
+    <TouchableWithoutFeedback onPressIn={() => speedRef.current = 5} onPressOut={() => speedRef.current = 1}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0f5132', zIndex: 1000 }]}>
+        {activeCards.map((c, i) => (
+          <View key={`${c.card.id}-${i}`} style={{ position: 'absolute', left: c.x, top: c.y }}>
+            <CardDisplay card={c.card} />
+          </View>
+        ))}
+        <Text style={{ position: 'absolute', bottom: 50, width: '100%', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 18, fontWeight: 'bold' }}>Hold to speed up</Text>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+};
+
 const styles = StyleSheet.create({
   menuContainer: { flex: 1, backgroundColor: '#0f5132', alignItems: 'center', justifyContent: 'center' },
-  menuTitle: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 40 },
+  menuTitle: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 10 },
+  menuSubtitle: { fontSize: 18, color: '#fbbf24', fontStyle: 'italic', marginBottom: 40 },
   menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
   menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
