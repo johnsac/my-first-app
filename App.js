@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated } from 'react-native';
-import { Audio } from 'expo-av';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -66,35 +65,10 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [hinting, setHinting] = useState(null);
   const [activeDragLoc, setActiveDragLoc] = useState(null); 
-  const soundRef = useRef(null);
 
   globalSetDraggingPile = setActiveDragLoc;
 
-  useEffect(() => {
-    // Setup Audio
-    const setupAudio = async () => {
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=card-shuffle-7212.mp3' } // Public domain card sound
-        );
-        soundRef.current = sound;
-      } catch (e) {
-        console.log('Failed to load sound', e);
-      }
-    };
-    setupAudio();
-    return () => {
-      if (soundRef.current) soundRef.current.unloadAsync();
-    };
-  }, []);
-
-  const playSound = async () => {
-    if (!soundEnabled || !soundRef.current) return;
-    try {
-      await soundRef.current.stopAsync();
-      await soundRef.current.playAsync();
-    } catch (e) {}
-  };
+  const playSound = () => {};
   globalPlaySound = playSound;
 
   useEffect(() => {
@@ -427,10 +401,6 @@ export default function App() {
             <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(drawCount === 3 ? 1 : 3)}>
               <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Draw 3</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setSoundEnabled(!soundEnabled)}>
-              <View style={[styles.checkbox, soundEnabled && styles.checkboxChecked]} />
-              <Text style={styles.checkboxLabel}>Sound</Text>
             </TouchableOpacity>
           </View>
           
