@@ -802,11 +802,11 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
     <View style={[styles.card, isDragging && styles.cardDragging, hinting && styles.hintGlow]}>
       <Text style={[styles.cardValueTop, { color }]}>{card.value}{card.suit}</Text>
       {FACE_IMAGES[card.value] ? (
-        <View style={[styles.cardSuitContainer, { justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: -4, marginBottom: -4 }]}>
+        <View style={[styles.cardSuitContainer, { overflow: 'hidden', marginHorizontal: -4, marginBottom: -4, alignItems: 'center' }]}>
           <Image 
             source={FACE_IMAGES[card.value]} 
-            style={{ width: '150%', height: '150%', borderRadius: 2, transform: [{ rotate: '180deg' }] }}
-            resizeMode="cover"
+            style={{ width: '150%', height: '150%', position: 'absolute', top: 0, borderRadius: 2 }}
+            resizeMode="contain"
           />
         </View>
       ) : (
