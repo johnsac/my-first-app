@@ -938,7 +938,9 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
-const cardWidth = (windowWidth - 32 - 30) / 7; 
+const maxCardHeight = windowHeight * 0.18; // Ensure at least ~5.5 cards can stack vertically
+const maxCardWidth = maxCardHeight / 1.4;
+const cardWidth = Math.min((windowWidth - 32 - 30) / 7, maxCardWidth); 
 const cardHeight = cardWidth * 1.4;
 
 const WinAnimation = ({ foundations, onComplete }) => {
