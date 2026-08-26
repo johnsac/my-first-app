@@ -605,7 +605,7 @@ export default function App() {
               <View style={[styles.card, { padding: 0 }, hinting?.destType === 'stock' && styles.hintGlowDest]}>
                 <Image 
                   source={cardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
-                  style={{ width: '100%', height: '100%', borderRadius: 6 }} 
+                  style={{ width: '115%', height: '115%', position: 'absolute', top: '-7.5%', left: '-7.5%', borderRadius: 6 }} 
                   resizeMode="cover" 
                 />
               </View>
@@ -635,12 +635,15 @@ export default function App() {
       
       <View style={styles.actionBar}>
         <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+          <Text style={styles.actionIcon}>↩</Text>
           <Text style={styles.actionText}>Undo</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
+          <Text style={styles.actionIcon}>💡</Text>
           <Text style={styles.actionText}>Hint</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+          <Text style={styles.actionIcon}>☰</Text>
           <Text style={styles.actionText}>Menu</Text>
         </TouchableOpacity>
       </View>
@@ -825,7 +828,7 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
       <View style={[styles.card, { padding: 0 }]}>
         <Image 
           source={globalCardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
-          style={{ width: '100%', height: '100%', borderRadius: 6 }} 
+          style={{ width: '115%', height: '115%', position: 'absolute', top: '-7.5%', left: '-7.5%', borderRadius: 6 }} 
           resizeMode="cover" 
         />
       </View>
@@ -987,12 +990,13 @@ const styles = StyleSheet.create({
   cardBack: { backgroundColor: '#1d4ed8', borderColor: '#fff', borderWidth: 2, padding: 3 },
   cardBackPattern: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
   cardDragging: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
-  cardValueTop: { fontSize: Math.max(14, cardWidth * 0.28), fontWeight: 'bold' },
+  cardValueTop: { fontSize: Math.max(16, cardWidth * 0.32), fontWeight: 'bold' },
   cardSuitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center' },
   hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
-  actionButton: { padding: 10 },
+  actionButton: { padding: 10, alignItems: 'center' },
+  actionIcon: { fontSize: 22, color: '#fff', marginBottom: 4 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
