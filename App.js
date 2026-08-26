@@ -716,28 +716,49 @@ export default function App() {
         ))}
       </View>
       
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
-          <Text style={styles.actionIcon}>☰</Text>
-          <Text style={styles.actionText}>Menu</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
-          <Text style={styles.actionIcon}>💡</Text>
-          <Text style={styles.actionText}>Hint</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => {
-          Alert.alert('New Game', 'Are you sure you want to start a new game?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Yes', onPress: () => initializeGame(drawCount, difficulty) }
-          ]);
-        }}>
-          <Text style={styles.actionIcon}>✦</Text>
-          <Text style={styles.actionText}>New Game</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
-          <Text style={styles.actionIcon}>↩</Text>
-          <Text style={styles.actionText}>Undo</Text>
-        </TouchableOpacity>
+      <View style={[styles.actionBar, { backgroundColor: 'transparent', position: 'absolute', bottom: 10, left: 0, right: 0, paddingHorizontal: 16 }]} pointerEvents="box-none">
+        {[0, 1, 2, 3, 4, 5, 6].map(i => {
+          let actionBtn = null;
+          if (i === 0) actionBtn = (
+            <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+              <Text style={styles.actionIcon}>☰</Text>
+              <Text style={styles.actionText}>Menu</Text>
+            </TouchableOpacity>
+          );
+          if (i === 2) actionBtn = (
+            <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
+              <Text style={styles.actionIcon}>💡</Text>
+              <Text style={styles.actionText}>Hint</Text>
+            </TouchableOpacity>
+          );
+          if (i === 3) actionBtn = (
+            <TouchableOpacity style={styles.actionButton} onPress={() => {
+              Alert.alert('New Game', 'Are you sure you want to start a new game?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Yes', onPress: () => initializeGame(drawCount, difficulty) }
+              ]);
+            }}>
+              <Text style={styles.actionIcon}>✦</Text>
+              <Text style={styles.actionText}>New Game</Text>
+            </TouchableOpacity>
+          );
+          if (i === 5) actionBtn = (
+            <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+              <Text style={styles.actionIcon}>↩</Text>
+              <Text style={styles.actionText}>Undo</Text>
+            </TouchableOpacity>
+          );
+
+          return (
+            <View key={`gap-${i}`} style={{ width: cardWidth }} pointerEvents="box-none">
+              {actionBtn && (
+                <View style={{ position: 'absolute', left: cardWidth, width: gapSize, alignItems: 'center' }} pointerEvents="box-none">
+                  {actionBtn}
+                </View>
+              )}
+            </View>
+          );
+        })}
       </View>
       </SafeAreaView>
       {flyingData && (
@@ -955,6 +976,7 @@ const maxCardHeight = windowHeight * 0.18; // Ensure at least ~5.5 cards can sta
 const maxCardWidth = maxCardHeight / 1.4;
 const cardWidth = Math.min((windowWidth - 32 - 30) / 7, maxCardWidth); 
 const cardHeight = cardWidth * 1.4;
+const gapSize = (windowWidth - 32 - 7 * cardWidth) / 6;
 
 const WinAnimation = ({ foundations, onComplete }) => {
   const [activeCards, setActiveCards] = useState([]);
@@ -1091,8 +1113,8 @@ const styles = StyleSheet.create({
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center', transform: [{ translateY: -4 }] },
   hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
-  actionBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
-  actionButton: { padding: 6, alignItems: 'center', flex: 1 },
+  actionBar: { flexDirection: 'row', justifyContent: 'space-between', zIndex: 1000 },
+  actionButton: { padding: 6, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, minWidth: 60 },
   actionIcon: { fontSize: 20, color: '#fff', marginBottom: 2, height: 24, lineHeight: 24, textAlign: 'center' },
-  actionText: { color: '#fff', fontSize: 14, fontWeight: 'bold' }
+  actionText: { color: '#fff', fontSize: 12, fontWeight: 'bold' }
 });
