@@ -887,7 +887,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
     })
   ).current;
 
-  const renderedCards = movingCards.length > 0 ? movingCards : [card];
+  const renderedCards = isDragging && movingCards.length > 0 ? movingCards : [card];
 
   return (
     <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { zIndex: isDragging ? 999 : 1 }]}>
