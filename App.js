@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, Easing } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, Easing, Alert } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -573,7 +573,7 @@ export default function App() {
         
         <View style={styles.settingsBox}>
           <Text style={styles.settingsTitle}>Draw Mode</Text>
-          <View style={styles.settingColumn}>
+          <View style={styles.settingRow}>
             <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(1)}>
               <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Draw 1</Text>
@@ -585,7 +585,7 @@ export default function App() {
           </View>
           
           <Text style={[styles.settingsTitle, {marginTop: 20}]}>Difficulty</Text>
-          <View style={styles.settingColumn}>
+          <View style={styles.settingRow}>
             {['easy', 'normal', 'hard'].map(diff => (
               <TouchableOpacity key={diff} style={styles.checkboxRow} onPress={() => setDifficulty(diff)}>
                 <View style={[styles.checkbox, difficulty === diff && styles.checkboxChecked]} />
@@ -595,7 +595,7 @@ export default function App() {
           </View>
           
           <Text style={[styles.settingsTitle, {marginTop: 20}]}>Card Design</Text>
-          <View style={styles.settingColumn}>
+          <View style={styles.settingRow}>
             <TouchableOpacity style={styles.checkboxRow} onPress={() => setCardBackColor('blue')}>
               <View style={[styles.checkbox, cardBackColor === 'blue' && styles.checkboxChecked]} />
               <Text style={styles.checkboxLabel}>Blue Back</Text>
@@ -717,17 +717,26 @@ export default function App() {
       </View>
       
       <View style={styles.actionBar}>
-        <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
-          <Text style={styles.actionIcon}>↩</Text>
-          <Text style={styles.actionText}>Undo</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+          <Text style={styles.actionIcon}>☰</Text>
+          <Text style={styles.actionText}>Menu</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
           <Text style={styles.actionIcon}>💡</Text>
           <Text style={styles.actionText}>Hint</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
-          <Text style={styles.actionIcon}>☰</Text>
-          <Text style={styles.actionText}>Menu</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={() => {
+          Alert.alert('New Game', 'Are you sure you want to start a new game?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Yes', onPress: () => initializeGame(drawCount, difficulty) }
+          ]);
+        }}>
+          <Text style={styles.actionIcon}>✦</Text>
+          <Text style={styles.actionText}>New Game</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+          <Text style={styles.actionIcon}>↩</Text>
+          <Text style={styles.actionText}>Undo</Text>
         </TouchableOpacity>
       </View>
       </SafeAreaView>
@@ -774,7 +783,7 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc, 
       {cards.map((card, cardIndex) => {
         const topPos = currentTop;
         if (isTableau) {
-          currentTop += card.isFaceUp ? cardHeight * 0.35 : cardHeight * 0.1;
+          currentTop += card.isFaceUp ? cardHeight * 0.26 : cardHeight * 0.1;
         }
 
         // Hide cards that are visually grabbed by the DraggableCard above them
@@ -892,7 +901,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
   return (
     <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { zIndex: isDragging ? 999 : 1 }]}>
       {renderedCards.map((c, i) => (
-        <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * (cardHeight * 0.35), left: 0, right: 0 } : {}}>
+        <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * (cardHeight * 0.26), left: 0, right: 0 } : {}}>
           <CardDisplay card={c} isDragging={isDragging && i===0} hinting={hinting?.srcId === c.id} />
         </View>
       ))}
@@ -1050,14 +1059,14 @@ const styles = StyleSheet.create({
   menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
   menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
-  settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: 250 },
-  settingsTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: '90%', maxWidth: 400 },
+  settingsTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
   settingGroup: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap' },
-  settingColumn: { flexDirection: 'column', alignItems: 'flex-start', paddingLeft: 20 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  checkbox: { width: 24, height: 24, borderWidth: 2, borderColor: '#fff', borderRadius: 12, marginRight: 10 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8, marginHorizontal: 5 },
+  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#fff', borderRadius: 10, marginRight: 8 },
   checkboxChecked: { backgroundColor: '#fbbf24', borderColor: '#fbbf24' },
-  checkboxLabel: { color: '#fff', fontSize: 16, marginRight: 10 },
+  checkboxLabel: { color: '#fff', fontSize: 14 },
   container: { flex: 1, backgroundColor: '#0f5132' },
   header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
@@ -1082,8 +1091,8 @@ const styles = StyleSheet.create({
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center', transform: [{ translateY: -4 }] },
   hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
-  actionBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
-  actionButton: { padding: 10, alignItems: 'center', flex: 1 },
-  actionIcon: { fontSize: 22, color: '#fff', marginBottom: 4, height: 28, lineHeight: 28, textAlign: 'center' },
-  actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  actionBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
+  actionButton: { padding: 6, alignItems: 'center', flex: 1 },
+  actionIcon: { fontSize: 20, color: '#fff', marginBottom: 2, height: 24, lineHeight: 24, textAlign: 'center' },
+  actionText: { color: '#fff', fontSize: 14, fontWeight: 'bold' }
 });
