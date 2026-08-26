@@ -865,9 +865,11 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         }
 
         if (!moved) {
-          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start(() => {
-            setIsDragging(false);
-            globalSetDraggingPile(null);
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start((status) => {
+            if (status.finished) {
+              setIsDragging(false);
+              globalSetDraggingPile(null);
+            }
           });
         } else {
           setIsDragging(false);
@@ -875,9 +877,11 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         }
       },
       onPanResponderTerminate: () => {
-        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start(() => {
-          setIsDragging(false);
-          globalSetDraggingPile(null);
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 5 }).start((status) => {
+          if (status.finished) {
+            setIsDragging(false);
+            globalSetDraggingPile(null);
+          }
         });
       }
     })

@@ -1,4 +1,4 @@
-name: Build Unsigned iOS App
+name: Build Unsigned iOS App v2
 on:
   workflow_dispatch:
   push:
