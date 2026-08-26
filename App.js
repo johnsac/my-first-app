@@ -420,17 +420,7 @@ export default function App() {
       nextMove = cascadeQueue[0];
       setCascadeQueue(prev => prev.slice(1));
     } else {
-      if (waste.length > 0) {
-        const c = waste[waste.length - 1];
-        for (let f = 0; f < 4; f++) {
-          if (checkValidMove(c, 'foundation', f, false, foundations, tableau)) {
-            nextMove = { srcLocation: 'waste', srcPileIndex: 0, srcCardIndex: waste.length - 1, destLocation: 'foundation', destPileIndex: f, card: c };
-            break;
-          }
-        }
-      }
-      if (!nextMove) {
-        for (let t = 0; t < 7; t++) {
+      for (let t = 0; t < 7; t++) {
           const pile = tableau[t];
           if (pile.length > 0) {
             const c = pile[pile.length - 1];
@@ -445,7 +435,6 @@ export default function App() {
           }
           if (nextMove) break;
         }
-      }
     }
 
     if (nextMove) {
@@ -785,7 +774,7 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc, 
       {cards.map((card, cardIndex) => {
         const topPos = currentTop;
         if (isTableau) {
-          currentTop += card.isFaceUp ? 22 : 11;
+          currentTop += card.isFaceUp ? cardHeight * 0.22 : cardHeight * 0.1;
         }
 
         // Hide cards that are visually grabbed by the DraggableCard above them
