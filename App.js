@@ -360,7 +360,7 @@ export default function App() {
       let startX = 0, startY = 0;
       if (nextMove.srcLocation === 'waste') {
         const wasteZone = dropZones[`waste-0`];
-        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, drawCount) - 1) * (cardWidth * 0.35);
+        startX = (wasteZone?.layout?.x || 0) + (wasteZone?.layout?.width || 0) - cardWidth;
         startY = wasteZone?.layout?.y || 0;
       } else if (nextMove.srcLocation === 'tableau') {
         const tZone = dropZones[`tableau-${nextMove.srcPileIndex}`];
@@ -578,7 +578,7 @@ export default function App() {
                   return null;
                 }
                 return (
-                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * (cardWidth * 0.35), zIndex: i}]}>
+                  <View key={card.id} style={[{position: 'absolute', right: (visibleWaste.length - 1 - i) * (cardWidth * 0.35), zIndex: i}]}>
                     <DraggableCard card={card} location="waste" pileIndex={0} cardIndex={actualIndex} hinting={hinting} />
                   </View>
                 );
@@ -661,7 +661,11 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc, 
       onLayout={handleLayout} 
       collapsable={false}
     >
-      {cards.length === 0 && <View style={[styles.cardSlot, isHintDest && styles.hintGlowDest]} />}
+      {cards.length === 0 && (
+        <View style={[styles.cardSlot, isHintDest && styles.hintGlowDest]}>
+          {type === 'foundation' && <Text style={{ fontSize: cardWidth * 0.5, color: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }}>A</Text>}
+        </View>
+      )}
       {cards.map((card, cardIndex) => {
         const topPos = currentTop;
         if (isTableau) {
@@ -706,25 +710,32 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
   const [isDragging, setIsDragging] = useState(false);
   const lastTap = useRef(0);
 
+  const propsRef = useRef({ location, pileIndex, cardIndex });
+  useEffect(() => {
+    propsRef.current = { location, pileIndex, cardIndex };
+  }, [location, pileIndex, cardIndex]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
       onPanResponderGrant: () => {
+        const { location: loc, pileIndex: pIdx, cardIndex: cIdx } = propsRef.current;
         setIsDragging(true);
-        globalSetDraggingPile(`${location}-${pileIndex}-${cardIndex}`);
+        globalSetDraggingPile(`${loc}-${pIdx}-${cIdx}`);
         pan.setOffset({ x: pan.x._value, y: pan.y._value });
         pan.setValue({ x: 0, y: 0 });
         globalPlaySound();
       },
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
       onPanResponderRelease: (e, gesture) => {
+        const { location: loc, pileIndex: pIdx, cardIndex: cIdx } = propsRef.current;
         pan.flattenOffset();
         
         const now = Date.now();
         if (Math.abs(gesture.dx) < 5 && Math.abs(gesture.dy) < 5) {
           if (now - lastTap.current < 300) {
-            if (globalAutoMove(location, pileIndex, cardIndex)) {
+            if (globalAutoMove(loc, pIdx, cIdx)) {
               setIsDragging(false);
               globalSetDraggingPile(null);
               return; 
@@ -747,7 +758,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
 
         let moved = false;
         if (droppedOn) {
-          moved = globalAttemptMove(location, pileIndex, cardIndex, droppedOn.type, droppedOn.index);
+          moved = globalAttemptMove(loc, pIdx, cIdx, droppedOn.type, droppedOn.index);
         }
 
         if (!moved) {
@@ -956,8 +967,8 @@ const styles = StyleSheet.create({
   cardValueTop: { fontSize: Math.max(14, cardWidth * 0.28), fontWeight: 'bold' },
   cardSuitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center' },
-  hintGlow: { borderColor: '#0ea5e9', borderWidth: 3, shadowColor: '#0ea5e9', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
-  hintGlowDest: { borderColor: '#0ea5e9', borderWidth: 3, backgroundColor: 'rgba(14, 165, 233, 0.3)' },
+  hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
+  hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
   actionButton: { padding: 10 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
