@@ -733,9 +733,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
   const lastTap = useRef(0);
 
   const propsRef = useRef({ location, pileIndex, cardIndex });
-  useEffect(() => {
-    propsRef.current = { location, pileIndex, cardIndex };
-  }, [location, pileIndex, cardIndex]);
+  propsRef.current = { location, pileIndex, cardIndex };
 
   const panResponder = useRef(
     PanResponder.create({
