@@ -993,8 +993,8 @@ const styles = StyleSheet.create({
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center', transform: [{ translateY: -4 }] },
   hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
-  actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
-  actionButton: { padding: 10, alignItems: 'center' },
-  actionIcon: { fontSize: 22, color: '#fff', marginBottom: 4 },
+  actionBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
+  actionButton: { padding: 10, alignItems: 'center', flex: 1 },
+  actionIcon: { fontSize: 22, color: '#fff', marginBottom: 4, height: 28, lineHeight: 28, textAlign: 'center' },
   actionText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });
