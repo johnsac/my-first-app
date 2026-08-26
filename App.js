@@ -717,21 +717,59 @@ export default function App() {
       </View>
       
       <View style={[styles.actionBar, { backgroundColor: 'transparent', position: 'absolute', bottom: 10, left: 0, right: 0, paddingHorizontal: 16 }]} pointerEvents="box-none">
-        {[0, 1, 2, 3, 4, 5, 6].map(i => {
-          let actionBtn = null;
-          if (i === 0) actionBtn = (
+        {windowWidth >= 768 ? (
+          [0, 1, 2, 3, 4, 5, 6].map(i => {
+            let actionBtn = null;
+            if (i === 0) actionBtn = (
+              <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+                <Text style={styles.actionIcon}>☰</Text>
+                <Text style={styles.actionText}>Menu</Text>
+              </TouchableOpacity>
+            );
+            if (i === 2) actionBtn = (
+              <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
+                <Text style={styles.actionIcon}>💡</Text>
+                <Text style={styles.actionText}>Hint</Text>
+              </TouchableOpacity>
+            );
+            if (i === 3) actionBtn = (
+              <TouchableOpacity style={styles.actionButton} onPress={() => {
+                Alert.alert('New Game', 'Are you sure you want to start a new game?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Yes', onPress: () => initializeGame(drawCount, difficulty) }
+                ]);
+              }}>
+                <Text style={styles.actionIcon}>✦</Text>
+                <Text style={styles.actionText}>New</Text>
+              </TouchableOpacity>
+            );
+            if (i === 5) actionBtn = (
+              <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+                <Text style={styles.actionIcon}>↩</Text>
+                <Text style={styles.actionText}>Undo</Text>
+              </TouchableOpacity>
+            );
+
+            return (
+              <View key={`gap-${i}`} style={{ width: cardWidth }} pointerEvents="box-none">
+                {actionBtn && (
+                  <View style={{ position: 'absolute', left: cardWidth, width: gapSize, alignItems: 'center', bottom: 0 }} pointerEvents="box-none">
+                    {actionBtn}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        ) : (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', flex: 1 }} pointerEvents="box-none">
             <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
               <Text style={styles.actionIcon}>☰</Text>
               <Text style={styles.actionText}>Menu</Text>
             </TouchableOpacity>
-          );
-          if (i === 2) actionBtn = (
             <TouchableOpacity style={styles.actionButton} onPress={handleHint}>
               <Text style={styles.actionIcon}>💡</Text>
               <Text style={styles.actionText}>Hint</Text>
             </TouchableOpacity>
-          );
-          if (i === 3) actionBtn = (
             <TouchableOpacity style={styles.actionButton} onPress={() => {
               Alert.alert('New Game', 'Are you sure you want to start a new game?', [
                 { text: 'Cancel', style: 'cancel' },
@@ -741,24 +779,12 @@ export default function App() {
               <Text style={styles.actionIcon}>✦</Text>
               <Text style={styles.actionText}>New</Text>
             </TouchableOpacity>
-          );
-          if (i === 5) actionBtn = (
             <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
               <Text style={styles.actionIcon}>↩</Text>
               <Text style={styles.actionText}>Undo</Text>
             </TouchableOpacity>
-          );
-
-          return (
-            <View key={`gap-${i}`} style={{ width: cardWidth }} pointerEvents="box-none">
-              {actionBtn && (
-                <View style={{ position: 'absolute', left: cardWidth, width: gapSize, alignItems: 'center', bottom: 0 }} pointerEvents="box-none">
-                  {actionBtn}
-                </View>
-              )}
-            </View>
-          );
-        })}
+          </View>
+        )}
       </View>
       </SafeAreaView>
       {flyingData && (
