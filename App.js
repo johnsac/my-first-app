@@ -51,6 +51,7 @@ let globalAttemptMove = () => false;
 let globalAutoMove = () => false;
 let globalSetDraggingPile = () => {};
 let globalPlaySound = () => {};
+let globalCardBackColor = 'blue';
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
@@ -58,6 +59,8 @@ const registerDropZone = (type, index, layout) => {
 
 export default function App() {
   const [gameState, setGameState] = useState('menu'); 
+  const [cardBackColor, setCardBackColor] = useState('blue');
+  globalCardBackColor = cardBackColor;
   const [drawCount, setDrawCount] = useState(3); // Default to 3
   const [difficulty, setDifficulty] = useState('normal');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -508,6 +511,18 @@ export default function App() {
               </TouchableOpacity>
             ))}
           </View>
+          
+          <Text style={[styles.settingsTitle, {marginTop: 20}]}>Card Design</Text>
+          <View style={styles.settingColumn}>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setCardBackColor('blue')}>
+              <View style={[styles.checkbox, cardBackColor === 'blue' && styles.checkboxChecked]} />
+              <Text style={styles.checkboxLabel}>Blue Back</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setCardBackColor('red')}>
+              <View style={[styles.checkbox, cardBackColor === 'red' && styles.checkboxChecked]} />
+              <Text style={styles.checkboxLabel}>Red Back</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -587,8 +602,12 @@ export default function App() {
           </View>
           <TouchableOpacity onPress={handleStockTap} activeOpacity={0.8} style={styles.stockContainer}>
             {stock.length > 0 ? (
-              <View style={[styles.card, styles.cardBack, hinting?.destType === 'stock' && styles.hintGlowDest]}>
-                <View style={styles.cardBackPattern} />
+              <View style={[styles.card, { padding: 0 }, hinting?.destType === 'stock' && styles.hintGlowDest]}>
+                <Image 
+                  source={cardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
+                  style={{ width: '100%', height: '100%', borderRadius: 6 }} 
+                  resizeMode="cover" 
+                />
               </View>
             ) : (
               <View style={[styles.cardSlot, hinting?.destType === 'stock' && styles.hintGlowDest]}>
@@ -803,8 +822,12 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
   if (!card) return null;
   if (!card.isFaceUp) {
     return (
-      <View style={[styles.card, styles.cardBack]}>
-        <View style={styles.cardBackPattern} />
+      <View style={[styles.card, { padding: 0 }]}>
+        <Image 
+          source={globalCardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
+          style={{ width: '100%', height: '100%', borderRadius: 6 }} 
+          resizeMode="cover" 
+        />
       </View>
     );
   }
