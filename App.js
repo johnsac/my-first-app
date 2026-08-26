@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   cardDragging: { borderColor: '#fbbf24', borderWidth: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
   cardValueTop: { fontSize: Math.max(16, cardWidth * 0.32), fontWeight: 'bold' },
   cardSuitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center' },
+  cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center', transform: [{ translateY: -4 }] },
   hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
   hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 15, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 'auto' },
