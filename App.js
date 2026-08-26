@@ -752,7 +752,7 @@ export default function App() {
           return (
             <View key={`gap-${i}`} style={{ width: cardWidth }} pointerEvents="box-none">
               {actionBtn && (
-                <View style={{ position: 'absolute', left: cardWidth, width: gapSize, alignItems: 'center' }} pointerEvents="box-none">
+                <View style={{ position: 'absolute', left: cardWidth, width: gapSize, alignItems: 'center', bottom: 0 }} pointerEvents="box-none">
                   {actionBtn}
                 </View>
               )}
