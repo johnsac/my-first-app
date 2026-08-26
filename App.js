@@ -739,7 +739,7 @@ export default function App() {
               ]);
             }}>
               <Text style={styles.actionIcon}>✦</Text>
-              <Text style={styles.actionText}>New Game</Text>
+              <Text style={styles.actionText}>New</Text>
             </TouchableOpacity>
           );
           if (i === 5) actionBtn = (
