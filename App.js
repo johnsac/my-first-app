@@ -774,7 +774,7 @@ const DroppablePile = ({ type, index, cards, isTableau, hinting, activeDragLoc, 
       {cards.map((card, cardIndex) => {
         const topPos = currentTop;
         if (isTableau) {
-          currentTop += card.isFaceUp ? cardHeight * 0.22 : cardHeight * 0.1;
+          currentTop += card.isFaceUp ? cardHeight * 0.35 : cardHeight * 0.1;
         }
 
         // Hide cards that are visually grabbed by the DraggableCard above them
@@ -888,7 +888,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
   return (
     <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), { zIndex: isDragging ? 999 : 1 }]}>
       {renderedCards.map((c, i) => (
-        <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * 22, left: 0 } : {}}>
+        <View key={c.id} style={i > 0 ? { position: 'absolute', top: i * (cardHeight * 0.35), left: 0, right: 0 } : {}}>
           <CardDisplay card={c} isDragging={isDragging && i===0} hinting={hinting?.srcId === c.id} />
         </View>
       ))}
