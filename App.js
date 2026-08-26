@@ -244,9 +244,8 @@ export default function App() {
   };
 
   const checkGameOverCondition = (currentStock, currentWaste, currentFoundations, currentTableau) => {
-    if (currentStock.length > 0 || currentWaste.length > 0) return false;
-    if (currentWaste.length > 0) {
-      const card = currentWaste[currentWaste.length - 1];
+    const allAvailable = [...currentStock, ...currentWaste];
+    for (let card of allAvailable) {
       for (let f = 0; f < 4; f++) if (checkValidMove(card, 'foundation', f, false, currentFoundations, currentTableau)) return false;
       for (let t = 0; t < 7; t++) if (checkValidMove(card, 'tableau', t, false, currentFoundations, currentTableau)) return false;
     }
@@ -376,13 +375,17 @@ export default function App() {
       setScore(Math.max(0, nextScore));
       setTableau(newTableau);
       setFoundations(newFoundations);
-      if (destLocation === 'foundation') checkWinCondition(newFoundations);
-      
-      setTimeout(() => {
-        if (checkGameOverCondition(stock, waste, newFoundations, newTableau)) {
-          setGameState('gameover');
-        }
-      }, 500);
+      // Check win condition
+      const totalFoundations = newFoundations.reduce((acc, f) => acc + f.length, 0);
+      if (totalFoundations === 52) {
+        setTimeout(() => setGameState('win'), 500); // slight delay to see the last card land
+      } else {
+        setTimeout(() => {
+          if (checkGameOverCondition(stock, waste, newFoundations, newTableau)) {
+            setGameState('gameover');
+          }
+        }, 500);
+      }
       return true;
     }
     return false;
@@ -625,9 +628,6 @@ export default function App() {
         <TouchableOpacity style={[styles.menuButton, {marginTop: 10}]} onPress={() => setGameState('menu')}>
           <Text style={styles.menuButtonText}>Main Menu</Text>
         </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, {backgroundColor: '#ef4444', marginTop: 30}]} onPress={() => setGameState('win')}>
-            <Text style={styles.menuButtonText}>Force Win (Debug)</Text>
-          </TouchableOpacity>
       </SafeAreaView>
     );
   }
