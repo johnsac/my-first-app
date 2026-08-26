@@ -845,8 +845,8 @@ const CardDisplay = ({ card, isDragging, hinting }) => {
           />
         </View>
       ) : (
-        <View style={styles.cardSuitContainer}>
-          <Text style={[styles.cardSuitCenter, { color }]}>{card.suit}</Text>
+        <View style={[styles.cardSuitContainer, { marginBottom: -4 }]}>
+          <Text style={[styles.cardSuitCenter, { color, transform: [{ translateY: -12 }] }]}>{card.suit}</Text>
         </View>
       )}
     </View>
