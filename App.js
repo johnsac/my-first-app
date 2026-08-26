@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, Easing } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -17,10 +17,27 @@ const createDeck = () => {
   return deck;
 };
 
-const shuffle = (deck, difficulty) => {
+const WINNABLE_SEEDS = {
+  easy: [12345, 67890, 11111, 22222, 33333, 44444, 55555, 66666, 77777, 88888, 10203, 40506, 70809, 13579, 24680],
+  normal: [99999, 12121, 34343, 56565, 78787, 90909, 23232, 45454, 67676, 89898, 12321, 45654, 78987, 10101, 20202],
+  hard: [13579, 24680, 11223, 44556, 77889, 99001, 22334, 55667, 88990, 10293, 31415, 92653, 58979, 32384, 62643]
+};
+
+const mulberry32 = (a) => {
+  return function() {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+
+const shuffle = (deck, difficulty, seed) => {
   let d = [...deck];
+  const random = seed !== undefined ? mulberry32(seed) : Math.random;
+
   for (let i = d.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [d[i], d[j]] = [d[j], d[i]];
   }
 
@@ -39,7 +56,7 @@ const shuffle = (deck, difficulty) => {
     d.splice(48, 0, aces[3]);
   } else {
     for (let a of aces) {
-      const idx = Math.floor(Math.random() * (d.length + 1));
+      const idx = Math.floor(random() * (d.length + 1));
       d.splice(idx, 0, a);
     }
   }
@@ -55,6 +72,69 @@ let globalCardBackColor = 'blue';
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
+};
+
+const WinScreen = ({ onNextGame }) => {
+  const { width, height } = Dimensions.get('window');
+  
+  const cards = React.useMemo(() => {
+    let d = [];
+    for (let s of SUITS) {
+      for (let v of VALUES) {
+        d.push({ suit: s, value: v, isFaceUp: true, id: `win-${v}${s}` });
+      }
+    }
+    return d.sort(() => Math.random() - 0.5);
+  }, []);
+
+  const anims = useRef(cards.map(() => new Animated.ValueXY({ x: Math.random() * (width - 60), y: -100 }))).current;
+
+  useEffect(() => {
+    const animations = anims.map((anim, i) => {
+      return Animated.parallel([
+        Animated.sequence([
+          Animated.delay(i * 80),
+          Animated.timing(anim.y, {
+            toValue: height - 100, // roughly cardHeight
+            duration: 1500,
+            easing: Easing.bounce,
+            useNativeDriver: false
+          })
+        ]),
+        Animated.sequence([
+          Animated.delay(i * 80),
+          Animated.timing(anim.x, {
+            toValue: anim.x._value + (Math.random() - 0.5) * 150,
+            duration: 1500,
+            useNativeDriver: false
+          })
+        ])
+      ]);
+    });
+    
+    Animated.stagger(20, animations).start();
+  }, []);
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(22, 101, 52, 0.9)', zIndex: 10000, justifyContent: 'center', alignItems: 'center' }]}>
+      {cards.map((card, i) => (
+        <Animated.View key={card.id} style={{ position: 'absolute', left: anims[i].x, top: anims[i].y }}>
+          <CardDisplay card={card} />
+        </Animated.View>
+      ))}
+      
+      <View style={{ position: 'absolute', top: 100, alignItems: 'center' }}>
+        <Text style={{ fontSize: 48, fontWeight: 'bold', color: '#ffd700', textShadowColor: 'rgba(0, 0, 0, 0.75)', textShadowOffset: {width: -1, height: 1}, textShadowRadius: 10 }}>YOU WIN!</Text>
+      </View>
+
+      <TouchableOpacity 
+        style={{ backgroundColor: '#fbbf24', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30, zIndex: 10001, elevation: 11, marginTop: 100 }}
+        onPress={onNextGame}
+      >
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937' }}>Next Game</Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
 export default function App() {
@@ -131,7 +211,11 @@ export default function App() {
     setDrawCount(selectedDrawCount);
     setDifficulty(selectedDifficulty);
     playSound();
-    const deck = shuffle(createDeck(), selectedDifficulty);
+    
+    const seedList = WINNABLE_SEEDS[selectedDifficulty] || WINNABLE_SEEDS['normal'];
+    const randomSeed = seedList[Math.floor(Math.random() * seedList.length)];
+    
+    const deck = shuffle(createDeck(), selectedDifficulty, randomSeed);
     const newTableau = [[], [], [], [], [], [], []];
     
     for (let i = 0; i < 7; i++) {
@@ -260,6 +344,12 @@ export default function App() {
         newFoundations[destPileIndex] = [...newFoundations[destPileIndex], baseCard];
         if (srcLocation === 'tableau') nextScore += 10;
         if (srcLocation === 'waste') nextScore += 15;
+        
+        // Check win condition
+        const totalFoundations = newFoundations.reduce((acc, f) => acc + f.length, 0);
+        if (totalFoundations === 52) {
+          setTimeout(() => setGameState('win'), 500); // slight delay to see the last card land
+        }
       } else if (destLocation === 'tableau') {
         newTableau[destPileIndex] = [...newTableau[destPileIndex], ...movingCards];
         if (srcLocation === 'waste') nextScore += 5;
@@ -546,6 +636,9 @@ export default function App() {
         <TouchableOpacity style={[styles.menuButton, {marginTop: 10}]} onPress={() => setGameState('menu')}>
           <Text style={styles.menuButtonText}>Main Menu</Text>
         </TouchableOpacity>
+          <TouchableOpacity style={[styles.menuButton, {backgroundColor: '#ef4444', marginTop: 30}]} onPress={() => setGameState('win')}>
+            <Text style={styles.menuButtonText}>Force Win (Debug)</Text>
+          </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -553,7 +646,8 @@ export default function App() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" />
+      {gameState === 'win' && <WinScreen onNextGame={() => setGameState('menu')} />}
+      <StatusBar barStyle="light-content" />
         
         <View style={styles.header}>
           <Text style={styles.headerText}>Score: {score}</Text>
