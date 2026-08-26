@@ -360,7 +360,7 @@ export default function App() {
       let startX = 0, startY = 0;
       if (nextMove.srcLocation === 'waste') {
         const wasteZone = dropZones[`waste-0`];
-        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, drawCount) - 1) * 15;
+        startX = (wasteZone?.layout?.x || 0) + Math.max(0, Math.min(waste.length, drawCount) - 1) * (cardWidth * 0.35);
         startY = wasteZone?.layout?.y || 0;
       } else if (nextMove.srcLocation === 'tableau') {
         const tZone = dropZones[`tableau-${nextMove.srcPileIndex}`];
@@ -578,7 +578,7 @@ export default function App() {
                   return null;
                 }
                 return (
-                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * 15, zIndex: i}]}>
+                  <View key={card.id} style={[styles.cardSlot, {position: 'absolute', left: i * (cardWidth * 0.35), zIndex: i}]}>
                     <DraggableCard card={card} location="waste" pileIndex={0} cardIndex={actualIndex} hinting={hinting} />
                   </View>
                 );
