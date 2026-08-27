@@ -555,6 +555,7 @@ export default function App() {
   };
 
   if (gameState === 'menu') {
+    const hasGame = stock.length > 0 || waste.length > 0 || tableau.some(p => p.length > 0);
     return (
       <SafeAreaView style={styles.menuContainer}>
         <StatusBar barStyle="light-content" />
@@ -609,13 +610,21 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.menuButton, { marginTop: 40 }]} onPress={() => setGameState('playing')}>
-          <Text style={styles.menuButtonText}>Done</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount, difficulty)}>
-          <Text style={styles.menuButtonText}>New Game</Text>
-        </TouchableOpacity>
+        {hasGame ? (
+          <>
+            <TouchableOpacity style={[styles.menuButton, { marginTop: 40 }]} onPress={() => setGameState('playing')}>
+              <Text style={styles.menuButtonText}>Return to Game</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount, difficulty)}>
+              <Text style={styles.menuButtonText}>New Game</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity style={[styles.menuButton, { marginTop: 40 }]} onPress={() => initializeGame(drawCount, difficulty)}>
+            <Text style={styles.menuButtonText}>New Game</Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     );
   }
@@ -642,7 +651,6 @@ export default function App() {
               style={[styles.cardDesignOption, cardBackColor === cb.id && styles.cardDesignOptionActive]}
               onPress={() => {
                 setCardBackColor(cb.id);
-                setGameState('menu');
               }}
             >
               <Image source={cb.image} style={styles.cardDesignPreview} />
@@ -737,7 +745,7 @@ export default function App() {
             {stock.length > 0 ? (
               <View style={[styles.card, { padding: 0 }, hinting?.destType === 'stock' && styles.hintGlowDest]}>
                 <Image 
-                  source={cardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
+                  source={BACK_IMAGES[globalCardBackColor] || BACK_IMAGES['blue']} 
                   style={{ width: '115%', height: '115%', position: 'absolute', top: '-7.5%', left: '-7.5%', borderRadius: 6 }} 
                   resizeMode="cover" 
                 />
@@ -1012,20 +1020,21 @@ const FACE_IMAGES = {
   'J': require('./assets/face_card_jack.jpg')
 };
 
+const BACK_IMAGES = {
+  blue: require('./assets/card_back_blue.jpg'),
+  red: require('./assets/card_back_red.jpg'),
+  green: require('./assets/card_back_green.jpg'),
+  purple: require('./assets/card_back_purple.jpg'),
+  space: require('./assets/card_back_space.jpg')
+};
+
 const CardDisplay = ({ card, isDragging, hinting }) => {
   if (!card) return null;
   if (!card.isFaceUp) {
-    const backImages = {
-      blue: require('./assets/card_back_blue.jpg'),
-      red: require('./assets/card_back_red.jpg'),
-      green: require('./assets/card_back_green.jpg'),
-      purple: require('./assets/card_back_purple.jpg'),
-      space: require('./assets/card_back_space.jpg')
-    };
     return (
       <View style={[styles.card, { padding: 0 }]}>
         <Image 
-          source={backImages[globalCardBackColor] || backImages['blue']} 
+          source={BACK_IMAGES[globalCardBackColor] || BACK_IMAGES['blue']} 
           style={{ width: '115%', height: '115%', position: 'absolute', top: '-7.5%', left: '-7.5%', borderRadius: 6 }} 
           resizeMode="cover" 
         />
