@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, ImageBackground, Easing, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, ImageBackground, Easing, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -273,6 +277,8 @@ export default function App() {
     saveHistory(stock, waste, foundations, tableau, score, moves);
     playSound();
 
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
     let newStock = [...stock];
     let newWaste = [...waste];
     
