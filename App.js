@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, Easing, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, ImageBackground, Easing, Alert } from 'react-native';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -144,6 +144,7 @@ export default function App() {
   const [drawCount, setDrawCount] = useState(3); // Default to 3
   const [difficulty, setDifficulty] = useState('normal');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   
   const [stock, setStock] = useState([]);
   const [waste, setWaste] = useState([]);
@@ -554,58 +555,104 @@ export default function App() {
   };
 
   if (gameState === 'menu') {
-    const hasGame = stock.length > 0 || waste.length > 0 || tableau.some(p => p.length > 0);
     return (
       <SafeAreaView style={styles.menuContainer}>
         <StatusBar barStyle="light-content" />
-        <Text style={styles.menuTitle}>Klondike Solitaire</Text>
-        <Text style={styles.menuSubtitle}>by John Sacco</Text>
+        <Text style={styles.menuTitle}>Just Solitaire</Text>
+        <Text style={styles.menuSubtitle}>Settings</Text>
         
-        {hasGame && (
-          <TouchableOpacity style={styles.menuButton} onPress={() => setGameState('playing')}>
-            <Text style={styles.menuButtonText}>Resume Game</Text>
+        <View style={styles.settingsBox}>
+          <Text style={styles.settingsTitle}>Draw Mode</Text>
+          <View style={styles.segmentControl}>
+            <TouchableOpacity 
+              style={[styles.segmentButton, drawCount === 1 && styles.segmentButtonActive]} 
+              onPress={() => setDrawCount(1)}>
+              <Text style={[styles.segmentText, drawCount === 1 && styles.segmentTextActive]}>Draw 1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.segmentButton, drawCount === 3 && styles.segmentButtonActive]} 
+              onPress={() => setDrawCount(3)}>
+              <Text style={[styles.segmentText, drawCount === 3 && styles.segmentTextActive]}>Draw 3</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.settingsTitle}>Difficulty</Text>
+          <View style={styles.segmentControl}>
+            {['easy', 'normal', 'hard'].map(diff => (
+              <TouchableOpacity 
+                key={diff} 
+                style={[styles.segmentButton, difficulty === diff && styles.segmentButtonActive]} 
+                onPress={() => setDifficulty(diff)}>
+                <Text style={[styles.segmentText, difficulty === diff && styles.segmentTextActive]}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.settingsTitle}>Appearance</Text>
+          <View style={styles.segmentControl}>
+            <TouchableOpacity 
+              style={[styles.segmentButton, !darkMode && styles.segmentButtonActive]} 
+              onPress={() => setDarkMode(false)}>
+              <Text style={[styles.segmentText, !darkMode && styles.segmentTextActive]}>Classic Green</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.segmentButton, darkMode && styles.segmentButtonActive]} 
+              onPress={() => setDarkMode(true)}>
+              <Text style={[styles.segmentText, darkMode && styles.segmentTextActive]}>Dark Space</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.menuButton, { width: '100%', marginTop: 20 }]} 
+            onPress={() => setGameState('card_design')}>
+            <Text style={styles.menuButtonText}>Customize Card Backs</Text>
           </TouchableOpacity>
-        )}
+        </View>
+
+        <TouchableOpacity style={[styles.menuButton, { marginTop: 40 }]} onPress={() => setGameState('playing')}>
+          <Text style={styles.menuButtonText}>Done</Text>
+        </TouchableOpacity>
         
         <TouchableOpacity style={styles.menuButton} onPress={() => initializeGame(drawCount, difficulty)}>
           <Text style={styles.menuButtonText}>New Game</Text>
         </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (gameState === 'card_design') {
+    const cardBacks = [
+      { id: 'blue', image: require('./assets/card_back_blue.jpg') },
+      { id: 'red', image: require('./assets/card_back_red.jpg') },
+      { id: 'green', image: require('./assets/card_back_green.jpg') },
+      { id: 'purple', image: require('./assets/card_back_purple.jpg') },
+      { id: 'space', image: require('./assets/card_back_space.jpg') }
+    ];
+
+    return (
+      <SafeAreaView style={styles.menuContainer}>
+        <StatusBar barStyle="light-content" />
+        <Text style={styles.menuTitle}>Card Backs</Text>
+        <Text style={styles.menuSubtitle}>Select a design</Text>
         
-        <View style={styles.settingsBox}>
-          <Text style={styles.settingsTitle}>Draw Mode</Text>
-          <View style={styles.settingRow}>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(1)}>
-              <View style={[styles.checkbox, drawCount === 1 && styles.checkboxChecked]} />
-              <Text style={styles.checkboxLabel}>Draw 1</Text>
+        <View style={styles.cardDesignGrid}>
+          {cardBacks.map(cb => (
+            <TouchableOpacity 
+              key={cb.id} 
+              style={[styles.cardDesignOption, cardBackColor === cb.id && styles.cardDesignOptionActive]}
+              onPress={() => {
+                setCardBackColor(cb.id);
+                setGameState('menu');
+              }}
+            >
+              <Image source={cb.image} style={styles.cardDesignPreview} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setDrawCount(3)}>
-              <View style={[styles.checkbox, drawCount === 3 && styles.checkboxChecked]} />
-              <Text style={styles.checkboxLabel}>Draw 3</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={[styles.settingsTitle, {marginTop: 20}]}>Difficulty</Text>
-          <View style={styles.settingRow}>
-            {['easy', 'normal', 'hard'].map(diff => (
-              <TouchableOpacity key={diff} style={styles.checkboxRow} onPress={() => setDifficulty(diff)}>
-                <View style={[styles.checkbox, difficulty === diff && styles.checkboxChecked]} />
-                <Text style={styles.checkboxLabel}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <Text style={[styles.settingsTitle, {marginTop: 20}]}>Card Design</Text>
-          <View style={styles.settingRow}>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setCardBackColor('blue')}>
-              <View style={[styles.checkbox, cardBackColor === 'blue' && styles.checkboxChecked]} />
-              <Text style={styles.checkboxLabel}>Blue Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setCardBackColor('red')}>
-              <View style={[styles.checkbox, cardBackColor === 'red' && styles.checkboxChecked]} />
-              <Text style={styles.checkboxLabel}>Red Back</Text>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
+
+        <TouchableOpacity style={[styles.menuButton, { marginTop: 50 }]} onPress={() => setGameState('menu')}>
+          <Text style={styles.menuButtonText}>Back to Settings</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -632,8 +679,11 @@ export default function App() {
     );
   }
 
+  const MainBackground = darkMode ? ImageBackground : View;
+  const bgProps = darkMode ? { source: require('./assets/space_bg.jpg'), resizeMode: 'cover' } : {};
+
   return (
-    <View style={styles.container}>
+    <MainBackground style={styles.container} {...bgProps}>
       <SafeAreaView style={{ flex: 1 }}>
       {gameState === 'win' && <WinScreen onNextGame={() => setGameState('menu')} />}
       <StatusBar barStyle="light-content" />
@@ -761,7 +811,7 @@ export default function App() {
             );
           })
         ) : (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', flex: 1 }} pointerEvents="box-none">
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', flex: 1, paddingBottom: 50 }} pointerEvents="box-none">
             <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
               <Text style={styles.actionIcon}>☰</Text>
               <Text style={styles.actionText}>Menu</Text>
@@ -795,7 +845,7 @@ export default function App() {
           <CardDisplay card={flyingData.card} />
         </Animated.View>
       )}
-    </View>
+    </MainBackground>
   );
 }
 
@@ -965,10 +1015,17 @@ const FACE_IMAGES = {
 const CardDisplay = ({ card, isDragging, hinting }) => {
   if (!card) return null;
   if (!card.isFaceUp) {
+    const backImages = {
+      blue: require('./assets/card_back_blue.jpg'),
+      red: require('./assets/card_back_red.jpg'),
+      green: require('./assets/card_back_green.jpg'),
+      purple: require('./assets/card_back_purple.jpg'),
+      space: require('./assets/card_back_space.jpg')
+    };
     return (
       <View style={[styles.card, { padding: 0 }]}>
         <Image 
-          source={globalCardBackColor === 'red' ? require('./assets/card_back_red.jpg') : require('./assets/card_back_blue.jpg')} 
+          source={backImages[globalCardBackColor] || backImages['blue']} 
           style={{ width: '115%', height: '115%', position: 'absolute', top: '-7.5%', left: '-7.5%', borderRadius: 6 }} 
           resizeMode="cover" 
         />
@@ -1107,14 +1164,17 @@ const styles = StyleSheet.create({
   menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
   menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
-  settingsBox: { marginTop: 40, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: '90%', maxWidth: 400 },
-  settingsTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  settingGroup: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap' },
-  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8, marginHorizontal: 5 },
-  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#fff', borderRadius: 10, marginRight: 8 },
-  checkboxChecked: { backgroundColor: '#fbbf24', borderColor: '#fbbf24' },
-  checkboxLabel: { color: '#fff', fontSize: 14 },
+  settingsBox: { marginTop: 20, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: '90%', maxWidth: 400 },
+  settingsTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', marginTop: 10 },
+  segmentControl: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: 4, marginBottom: 15 },
+  segmentButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  segmentButtonActive: { backgroundColor: '#fbbf24' },
+  segmentText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  segmentTextActive: { color: '#000' },
+  cardDesignGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 15, marginTop: 20, maxWidth: 400 },
+  cardDesignOption: { width: 80, height: 112, borderWidth: 3, borderColor: 'transparent', borderRadius: 8 },
+  cardDesignOptionActive: { borderColor: '#fbbf24' },
+  cardDesignPreview: { width: '100%', height: '100%', borderRadius: 5, resizeMode: 'cover' },
   container: { flex: 1, backgroundColor: '#0f5132' },
   header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
