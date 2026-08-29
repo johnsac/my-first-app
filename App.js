@@ -49,20 +49,20 @@ const shuffle = (deck, difficulty, seed) => {
   d = d.filter(c => c.value !== 'A');
 
   if (difficulty === 'easy') {
-    d.splice(20, 0, aces[0]);
-    d.splice(22, 0, aces[1]);
+    d.splice(33, 0, aces[0]);
+    d.splice(38, 0, aces[1]);
     d.splice(44, 0, aces[2]);
     d.splice(51, 0, aces[3]);
-  } else if (difficulty === 'hard') {
-    d.splice(45, 0, aces[0]); 
-    d.splice(46, 0, aces[1]);
-    d.splice(47, 0, aces[2]);
-    d.splice(48, 0, aces[3]);
+  } else if (difficulty === 'normal') {
+    d.splice(5, 0, aces[0]); 
+    d.splice(10, 0, aces[1]);
+    d.splice(44, 0, aces[2]);
+    d.splice(51, 0, aces[3]);
   } else {
-    for (let a of aces) {
-      const idx = Math.floor(random() * (d.length + 1));
-      d.splice(idx, 0, a);
-    }
+    d.splice(0, 0, aces[0]); 
+    d.splice(1, 0, aces[1]);
+    d.splice(2, 0, aces[2]);
+    d.splice(3, 0, aces[3]);
   }
   return d;
 };
@@ -73,6 +73,7 @@ let globalAutoMove = () => false;
 let globalSetDraggingPile = () => {};
 let globalPlaySound = () => {};
 let globalCardBackColor = 'blue';
+let globalIsAnimating = false;
 
 const registerDropZone = (type, index, layout) => {
   dropZones[`${type}-${index}`] = { type, index, layout };
@@ -274,6 +275,7 @@ export default function App() {
   };
 
   const handleStockTap = () => {
+    if (globalIsAnimating) return;
     saveHistory(stock, waste, foundations, tableau, score, moves);
     playSound();
 
@@ -470,6 +472,7 @@ export default function App() {
       const endY = destZone?.layout?.y || 0;
       
       flyAnim.setValue({ x: startX, y: startY });
+      globalIsAnimating = true;
       setFlyingData(nextMove);
       
       Animated.timing(flyAnim, {
@@ -479,6 +482,7 @@ export default function App() {
       }).start(() => {
         attemptMove(nextMove.srcLocation, nextMove.srcPileIndex, nextMove.srcCardIndex, nextMove.destLocation, nextMove.destPileIndex);
         setFlyingData(null);
+        globalIsAnimating = false;
       });
     } else {
       setIsCascading(false);
@@ -709,21 +713,20 @@ export default function App() {
         </View>
       
       <View style={[styles.topRow, { zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
-        <View style={styles.foundationsContainer}>
-          {foundations.map((f, index) => (
-            <DroppablePile 
-              key={`f-${index}`} 
-              type="foundation" 
-              index={index} 
-              cards={f} 
-              hinting={hinting} 
-              activeDragLoc={activeDragLoc} 
-            />
-          ))}
-        </View>
+        {foundations.map((f, index) => (
+          <DroppablePile 
+            key={`f-${index}`} 
+            type="foundation" 
+            index={index} 
+            cards={f} 
+            hinting={hinting} 
+            activeDragLoc={activeDragLoc} 
+          />
+        ))}
 
-             <View style={styles.stockWasteContainer}>
-          <View 
+        <View style={{ width: cardWidth }} />
+
+        <View 
             style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}
             onLayout={(e) => {
               e.target.measure((x, y, width, height, pageX, pageY) => {
@@ -763,7 +766,6 @@ export default function App() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
 
       <View style={[styles.tableauContainer, { zIndex: activeDragLoc?.startsWith('tableau') ? 999 : 1 }]}>
         {tableau.map((pile, pileIndex) => (
@@ -940,8 +942,8 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
+      onStartShouldSetPanResponder: () => !globalIsAnimating,
+      onMoveShouldSetPanResponder: (_, gesture) => !globalIsAnimating && (Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2),
       onPanResponderGrant: () => {
         const { location: loc, pileIndex: pIdx, cardIndex: cIdx } = propsRef.current;
         setIsDragging(true);
