@@ -712,21 +712,22 @@ export default function App() {
           <Text style={styles.headerText}>Moves: {moves}</Text>
         </View>
       
-      <View style={[styles.topRow, { width: playAreaWidth, alignSelf: 'flex-end', zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
-        <View style={{ width: cardWidth }} pointerEvents="none" />
-        
-        {foundations.map((f, index) => (
-          <DroppablePile 
-            key={`f-${index}`} 
-            type="foundation" 
-            index={index} 
-            cards={f} 
-            hinting={hinting} 
-            activeDragLoc={activeDragLoc} 
-          />
-        ))}
+      <View style={[styles.topRow, { width: playAreaWidth, alignSelf: 'center', zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
+        <View style={styles.foundationsContainer}>
+          {foundations.map((f, index) => (
+            <DroppablePile 
+              key={`f-${index}`} 
+              type="foundation" 
+              index={index} 
+              cards={f} 
+              hinting={hinting} 
+              activeDragLoc={activeDragLoc} 
+            />
+          ))}
+        </View>
 
-        <View 
+        <View style={styles.stockWasteContainer}>
+          <View 
             style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}
             onLayout={(e) => {
               e.target.measure((x, y, width, height, pageX, pageY) => {
@@ -766,8 +767,9 @@ export default function App() {
             )}
           </TouchableOpacity>
         </View>
+      </View>
 
-      <View style={[styles.tableauContainer, { width: playAreaWidth, alignSelf: 'flex-end', zIndex: activeDragLoc?.startsWith('tableau') ? 999 : 1 }]}>
+      <View style={[styles.tableauContainer, { width: playAreaWidth, alignSelf: 'center', zIndex: activeDragLoc?.startsWith('tableau') ? 999 : 1 }]}>
         {tableau.map((pile, pileIndex) => (
           <DroppablePile 
             key={`t-${pileIndex}`} 
@@ -1198,8 +1200,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   headerText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, marginBottom: 24, zIndex: 10 },
-  foundationsContainer: { flexDirection: 'row', gap: 8 },
-  stockWasteContainer: { flexDirection: 'row', gap: 8 },
+  foundationsContainer: { flexDirection: 'row', gap: windowWidth >= 768 ? gapSize * 0.8 : 8 },
+  stockWasteContainer: { flexDirection: 'row', gap: windowWidth >= 768 ? gapSize * 0.8 : 8 },
   foundationPile: { width: cardWidth, height: cardHeight },
   foundationCardWrapper: { position: 'absolute' },
   wasteContainer: { width: cardWidth + 40, height: cardHeight },
