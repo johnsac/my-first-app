@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, PanResponder, Animated, TouchableWithoutFeedback, Image, ImageBackground, Easing, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { Audio } from 'expo-av';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -171,6 +172,40 @@ export default function App() {
 
   globalSetDraggingPile = setActiveDragLoc;
 
+  const [soundShort, setSoundShort] = useState(null);
+  const [soundLong, setSoundLong] = useState(null);
+
+  useEffect(() => {
+    async function loadSounds() {
+      try {
+        const { sound: sShort } = await Audio.Sound.createAsync(require('./assets/shuffle_short.wav'));
+        setSoundShort(sShort);
+        const { sound: sLong } = await Audio.Sound.createAsync(require('./assets/shuffle_long.wav'));
+        setSoundLong(sLong);
+      } catch (e) {
+        console.warn('Failed to load sounds', e);
+      }
+    }
+    loadSounds();
+    
+    return () => {
+      if (soundShort) soundShort.unloadAsync();
+      if (soundLong) soundLong.unloadAsync();
+    };
+  }, []);
+
+  const playShuffleShort = async () => {
+    if (soundShort && soundEnabled) {
+      await soundShort.replayAsync();
+    }
+  };
+
+  const playShuffleLong = async () => {
+    if (soundLong && soundEnabled) {
+      await soundLong.replayAsync();
+    }
+  };
+
   const playSound = () => {};
   globalPlaySound = playSound;
 
@@ -286,12 +321,14 @@ export default function App() {
     
     if (newStock.length === 0) {
       if (newWaste.length === 0) return; 
+      playShuffleLong();
       newStock = newWaste.reverse().map(c => ({ ...c, isFaceUp: false }));
       newWaste = [];
       setStock(newStock);
       setWaste(newWaste);
       setScore(s => Math.max(0, s - 100));
     } else {
+      playShuffleShort();
       const limit = Math.min(drawCount, newStock.length);
       for (let i = 0; i < limit; i++) {
         const card = newStock.pop();
