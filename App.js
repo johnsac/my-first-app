@@ -712,7 +712,9 @@ export default function App() {
           <Text style={styles.headerText}>Moves: {moves}</Text>
         </View>
       
-      <View style={[styles.topRow, { zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
+      <View style={[styles.topRow, { width: playAreaWidth, alignSelf: 'flex-end', zIndex: activeDragLoc && !activeDragLoc.startsWith('tableau') ? 999 : 10 }]}>
+        <View style={{ width: cardWidth }} pointerEvents="none" />
+        
         {foundations.map((f, index) => (
           <DroppablePile 
             key={`f-${index}`} 
@@ -723,8 +725,6 @@ export default function App() {
             activeDragLoc={activeDragLoc} 
           />
         ))}
-
-        <View style={{ width: cardWidth }} />
 
         <View 
             style={[styles.wasteContainer, { zIndex: activeDragLoc?.startsWith('waste-0') ? 999 : 1 }]}
@@ -767,7 +767,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-      <View style={[styles.tableauContainer, { zIndex: activeDragLoc?.startsWith('tableau') ? 999 : 1 }]}>
+      <View style={[styles.tableauContainer, { width: playAreaWidth, alignSelf: 'flex-end', zIndex: activeDragLoc?.startsWith('tableau') ? 999 : 1 }]}>
         {tableau.map((pile, pileIndex) => (
           <DroppablePile 
             key={`t-${pileIndex}`} 
@@ -972,9 +972,10 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         let droppedOn = null;
         for (const key in dropZones) {
           const zone = dropZones[key];
+          const buffer = 25;
           if (
-            gesture.moveX >= zone.layout.x && gesture.moveX <= zone.layout.x + zone.layout.width &&
-            gesture.moveY >= zone.layout.y && gesture.moveY <= zone.layout.y + zone.layout.height
+            gesture.moveX >= zone.layout.x - buffer && gesture.moveX <= zone.layout.x + zone.layout.width + buffer &&
+            gesture.moveY >= zone.layout.y - buffer && gesture.moveY <= zone.layout.y + zone.layout.height + buffer
           ) {
             droppedOn = zone;
             break;
@@ -1077,6 +1078,7 @@ const maxCardWidth = maxCardHeight / 1.4;
 const cardWidth = Math.min((windowWidth - 32 - 30) / 7, maxCardWidth); 
 const cardHeight = cardWidth * 1.4;
 const gapSize = (windowWidth - 32 - 7 * cardWidth) / 6;
+const playAreaWidth = windowWidth >= 768 ? 7 * cardWidth + 6 * (gapSize * 0.8) + 32 : windowWidth;
 
 const WinAnimation = ({ foundations, onComplete }) => {
   const [activeCards, setActiveCards] = useState([]);
