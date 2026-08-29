@@ -73,6 +73,7 @@ let globalAttemptMove = () => false;
 let globalAutoMove = () => false;
 let globalSetDraggingPile = () => {};
 let globalPlaySound = () => {};
+let globalPlayWinSound = () => {};
 let globalCardBackColor = 'blue';
 let globalIsAnimating = false;
 
@@ -174,23 +175,40 @@ export default function App() {
 
   const soundShort = useAudioPlayer(require('./assets/shuffle_short.wav'));
   const soundLong = useAudioPlayer(require('./assets/shuffle_long.wav'));
+  const soundAce = useAudioPlayer(require('./assets/ace_placed.wav'));
+  const soundWin = useAudioPlayer(require('./assets/game_won.wav'));
 
-  const playShuffleShort = () => {
+  const playShuffleShort = async () => {
     if (soundEnabled) {
-      soundShort.seekTo(0);
+      await soundShort.seekTo(0);
       soundShort.play();
     }
   };
 
-  const playShuffleLong = () => {
+  const playShuffleLong = async () => {
     if (soundEnabled) {
-      soundLong.seekTo(0);
+      await soundLong.seekTo(0);
       soundLong.play();
+    }
+  };
+
+  const playAceSound = async () => {
+    if (soundEnabled) {
+      await soundAce.seekTo(0);
+      soundAce.play();
+    }
+  };
+
+  const playWinSound = async () => {
+    if (soundEnabled) {
+      await soundWin.seekTo(0);
+      soundWin.play();
     }
   };
 
   const playSound = () => {};
   globalPlaySound = playSound;
+  globalPlayWinSound = playWinSound;
 
   useEffect(() => {
     let interval = null;
@@ -369,6 +387,7 @@ export default function App() {
       
       let nextScore = score;
       if (destLocation === 'foundation') {
+        playAceSound();
         newFoundations[destPileIndex] = [...newFoundations[destPileIndex], baseCard];
         if (srcLocation === 'tableau') nextScore += 10;
         if (srcLocation === 'waste') nextScore += 15;
@@ -376,6 +395,7 @@ export default function App() {
         // Check win condition
         const totalFoundations = newFoundations.reduce((acc, f) => acc + f.length, 0);
         if (totalFoundations === 52) {
+          playWinSound();
           setTimeout(() => setGameState('win'), 500); // slight delay to see the last card land
         }
       } else if (destLocation === 'tableau') {
@@ -604,6 +624,22 @@ export default function App() {
               style={[styles.segmentButton, drawCount === 3 && styles.segmentButtonActive]} 
               onPress={() => setDrawCount(3)}>
               <Text style={[styles.segmentText, drawCount === 3 && styles.segmentTextActive]}>Draw 3</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Text style={styles.settingsTitle}>Sounds</Text>
+          <View style={styles.segmentControl}>
+            <TouchableOpacity 
+              style={[styles.segmentButton, soundEnabled && styles.segmentButtonActive]} 
+              onPress={() => setSoundEnabled(true)}
+            >
+              <Text style={[styles.segmentButtonText, soundEnabled && styles.segmentButtonTextActive]}>On</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.segmentButton, !soundEnabled && styles.segmentButtonActive]} 
+              onPress={() => setSoundEnabled(false)}
+            >
+              <Text style={[styles.segmentButtonText, !soundEnabled && styles.segmentButtonTextActive]}>Off</Text>
             </TouchableOpacity>
           </View>
           
@@ -1116,6 +1152,10 @@ const WinAnimation = ({ foundations, onComplete }) => {
   const startTime = useRef(Date.now());
   
   useEffect(() => {
+    if (globalPlayWinSound) {
+      globalPlayWinSound();
+    }
+
     let cards = [];
     for (let f = 0; f < 4; f++) {
       for (let c = 0; c < foundations[f].length; c++) {
