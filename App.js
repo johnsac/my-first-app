@@ -789,7 +789,7 @@ export default function App() {
           [0, 1, 2, 3, 4, 5, 6].map(i => {
             let actionBtn = null;
             if (i === 0) actionBtn = (
-              <TouchableOpacity style={styles.actionButton} onPress={() => setGameState('menu')}>
+              <TouchableOpacity style={[styles.actionButton, { transform: [{ translateX: 15 }] }]} onPress={() => setGameState('menu')}>
                 <Text style={styles.actionIcon}>☰</Text>
                 <Text style={styles.actionText}>Menu</Text>
               </TouchableOpacity>
@@ -812,7 +812,7 @@ export default function App() {
               </TouchableOpacity>
             );
             if (i === 5) actionBtn = (
-              <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}]} onPress={handleUndo} disabled={history.length === 0}>
+              <TouchableOpacity style={[styles.actionButton, history.length === 0 && {opacity: 0.5}, { transform: [{ translateX: -20 }] }]} onPress={handleUndo} disabled={history.length === 0}>
                 <Text style={styles.actionIcon}>↩</Text>
                 <Text style={styles.actionText}>Undo</Text>
               </TouchableOpacity>
@@ -1212,7 +1212,7 @@ const styles = StyleSheet.create({
   foundationCardWrapper: { position: 'absolute' },
   wasteContainer: { width: cardWidth + 40, height: cardHeight },
   stockContainer: { width: cardWidth, height: cardHeight },
-  recycleIcon: { fontSize: 24, color: 'rgba(255,255,255,0.3)' },
+  recycleIcon: { fontSize: windowWidth >= 768 ? 48 : 24, color: 'rgba(255,255,255,0.3)' },
   tableauContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16 },
   tableauColumn: { width: cardWidth, minHeight: cardHeight },
   tableauCardWrapper: { position: 'absolute', left: 0, right: 0 },
@@ -1224,8 +1224,8 @@ const styles = StyleSheet.create({
   cardValueTop: { fontSize: Math.max(16, cardWidth * 0.32), fontWeight: 'bold' },
   cardSuitContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   cardSuitCenter: { fontSize: Math.max(42, cardWidth * 0.84), textAlign: 'center', transform: [{ translateY: -4 }] },
-  hintGlow: { borderColor: '#ffd700', borderWidth: 3, shadowColor: '#ffd700', shadowOpacity: 1, shadowRadius: 10, elevation: 5 },
-  hintGlowDest: { borderColor: '#ffd700', borderWidth: 3, backgroundColor: 'rgba(255, 215, 0, 0.3)' },
+  hintGlow: { borderColor: '#ffea00', borderWidth: 5, shadowColor: '#ffea00', shadowOpacity: 1, shadowRadius: 15, elevation: 10 },
+  hintGlowDest: { borderColor: '#ffea00', borderWidth: 5, backgroundColor: 'rgba(255, 234, 0, 0.4)' },
   actionBar: { flexDirection: 'row', justifyContent: 'space-between', zIndex: 1000 },
   actionButton: { padding: 6, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 8, minWidth: 60 },
   actionIcon: { fontSize: 20, color: '#fff', marginBottom: 2, height: 24, lineHeight: 24, textAlign: 'center' },
