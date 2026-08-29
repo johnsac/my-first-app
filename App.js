@@ -279,7 +279,7 @@ export default function App() {
     saveHistory(stock, waste, foundations, tableau, score, moves);
     playSound();
 
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    LayoutAnimation.configureNext({ ...LayoutAnimation.Presets.easeInEaseOut, duration: 400 });
     
     let newStock = [...stock];
     let newWaste = [...waste];
@@ -477,7 +477,7 @@ export default function App() {
       
       Animated.timing(flyAnim, {
         toValue: { x: endX, y: endY },
-        duration: 250,
+        duration: 400,
         useNativeDriver: false
       }).start(() => {
         attemptMove(nextMove.srcLocation, nextMove.srcPileIndex, nextMove.srcCardIndex, nextMove.destLocation, nextMove.destPileIndex);
@@ -972,6 +972,7 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
         }
 
         let droppedOn = null;
+        let minDistance = Infinity;
         for (const key in dropZones) {
           const zone = dropZones[key];
           const buffer = 25;
@@ -979,8 +980,13 @@ const DraggableCard = ({ card, location, pileIndex, cardIndex, movingCards = [],
             gesture.moveX >= zone.layout.x - buffer && gesture.moveX <= zone.layout.x + zone.layout.width + buffer &&
             gesture.moveY >= zone.layout.y - buffer && gesture.moveY <= zone.layout.y + zone.layout.height + buffer
           ) {
-            droppedOn = zone;
-            break;
+            const centerX = zone.layout.x + zone.layout.width / 2;
+            const centerY = zone.layout.y + zone.layout.height / 2;
+            const dist = Math.hypot(gesture.moveX - centerX, gesture.moveY - centerY);
+            if (dist < minDistance) {
+              minDistance = dist;
+              droppedOn = zone;
+            }
           }
         }
 
@@ -1123,7 +1129,7 @@ const WinAnimation = ({ foundations, onComplete }) => {
       }
       
       spawnTimer += dt * speed;
-      if (spawnTimer > 250 && allCards.current.length > 0) {
+      if (spawnTimer > 375 && allCards.current.length > 0) {
         spawnTimer = 0;
         const next = allCards.current.shift();
         if (next) {
