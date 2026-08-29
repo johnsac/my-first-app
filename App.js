@@ -49,20 +49,20 @@ const shuffle = (deck, difficulty, seed) => {
   d = d.filter(c => c.value !== 'A');
 
   if (difficulty === 'easy') {
-    d.splice(33, 0, aces[0]);
-    d.splice(38, 0, aces[1]);
+    d.splice(20, 0, aces[0]);
+    d.splice(22, 0, aces[1]);
     d.splice(44, 0, aces[2]);
     d.splice(51, 0, aces[3]);
-  } else if (difficulty === 'normal') {
-    d.splice(5, 0, aces[0]); 
-    d.splice(10, 0, aces[1]);
-    d.splice(44, 0, aces[2]);
-    d.splice(51, 0, aces[3]);
+  } else if (difficulty === 'hard') {
+    d.splice(45, 0, aces[0]); 
+    d.splice(46, 0, aces[1]);
+    d.splice(47, 0, aces[2]);
+    d.splice(48, 0, aces[3]);
   } else {
-    d.splice(0, 0, aces[0]); 
-    d.splice(1, 0, aces[1]);
-    d.splice(2, 0, aces[2]);
-    d.splice(3, 0, aces[3]);
+    for (let a of aces) {
+      const idx = Math.floor(random() * (d.length + 1));
+      d.splice(idx, 0, a);
+    }
   }
   return d;
 };
