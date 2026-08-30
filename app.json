@@ -4,7 +4,7 @@
     "slug": "my-first-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/custom-icon.png",
+    "icon": "./assets/custom-icon.jpg",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
