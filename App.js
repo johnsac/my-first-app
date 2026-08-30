@@ -613,60 +613,68 @@ export default function App() {
         <Text style={styles.menuSubtitle}>Settings</Text>
         
         <View style={styles.settingsBox}>
-          <Text style={styles.settingsTitle}>Draw Mode</Text>
-          <View style={styles.segmentControl}>
-            <TouchableOpacity 
-              style={[styles.segmentButton, drawCount === 1 && styles.segmentButtonActive]} 
-              onPress={() => setDrawCount(1)}>
-              <Text style={[styles.segmentText, drawCount === 1 && styles.segmentTextActive]}>Draw 1</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.segmentButton, drawCount === 3 && styles.segmentButtonActive]} 
-              onPress={() => setDrawCount(3)}>
-              <Text style={[styles.segmentText, drawCount === 3 && styles.segmentTextActive]}>Draw 3</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={styles.settingsTitle}>Sounds</Text>
-          <View style={styles.segmentControl}>
-            <TouchableOpacity 
-              style={[styles.segmentButton, soundEnabled && styles.segmentButtonActive]} 
-              onPress={() => setSoundEnabled(true)}
-            >
-              <Text style={[styles.segmentButtonText, soundEnabled && styles.segmentButtonTextActive]}>On</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.segmentButton, !soundEnabled && styles.segmentButtonActive]} 
-              onPress={() => setSoundEnabled(false)}
-            >
-              <Text style={[styles.segmentButtonText, !soundEnabled && styles.segmentButtonTextActive]}>Off</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={styles.settingsTitle}>Difficulty</Text>
-          <View style={styles.segmentControl}>
-            {['easy', 'normal', 'hard'].map(diff => (
+          <View style={styles.settingRow}>
+            <Text style={styles.settingsTitle}>Draw Mode</Text>
+            <View style={styles.segmentControl}>
               <TouchableOpacity 
-                key={diff} 
-                style={[styles.segmentButton, difficulty === diff && styles.segmentButtonActive]} 
-                onPress={() => setDifficulty(diff)}>
-                <Text style={[styles.segmentText, difficulty === diff && styles.segmentTextActive]}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</Text>
+                style={[styles.segmentButton, drawCount === 1 && styles.segmentButtonActive]} 
+                onPress={() => setDrawCount(1)}>
+                <Text style={[styles.segmentText, drawCount === 1 && styles.segmentTextActive]}>Draw 1</Text>
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity 
+                style={[styles.segmentButton, drawCount === 3 && styles.segmentButtonActive]} 
+                onPress={() => setDrawCount(3)}>
+                <Text style={[styles.segmentText, drawCount === 3 && styles.segmentTextActive]}>Draw 3</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingsTitle}>Sounds</Text>
+            <View style={styles.segmentControl}>
+              <TouchableOpacity 
+                style={[styles.segmentButton, soundEnabled && styles.segmentButtonActive]} 
+                onPress={() => setSoundEnabled(true)}
+              >
+                <Text style={[styles.segmentButtonText, soundEnabled && styles.segmentButtonTextActive]}>On</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.segmentButton, !soundEnabled && styles.segmentButtonActive]} 
+                onPress={() => setSoundEnabled(false)}
+              >
+                <Text style={[styles.segmentButtonText, !soundEnabled && styles.segmentButtonTextActive]}>Off</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingsTitle}>Difficulty</Text>
+            <View style={styles.segmentControl}>
+              {['easy', 'normal', 'hard'].map(diff => (
+                <TouchableOpacity 
+                  key={diff} 
+                  style={[styles.segmentButton, difficulty === diff && styles.segmentButtonActive]} 
+                  onPress={() => setDifficulty(diff)}>
+                  <Text style={[styles.segmentText, difficulty === diff && styles.segmentTextActive]}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <Text style={styles.settingsTitle}>Appearance</Text>
-          <View style={styles.segmentControl}>
-            <TouchableOpacity 
-              style={[styles.segmentButton, !darkMode && styles.segmentButtonActive]} 
-              onPress={() => setDarkMode(false)}>
-              <Text style={[styles.segmentText, !darkMode && styles.segmentTextActive]}>Classic Green</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.segmentButton, darkMode && styles.segmentButtonActive]} 
-              onPress={() => setDarkMode(true)}>
-              <Text style={[styles.segmentText, darkMode && styles.segmentTextActive]}>Dark Space</Text>
-            </TouchableOpacity>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingsTitle}>Appearance</Text>
+            <View style={styles.segmentControl}>
+              <TouchableOpacity 
+                style={[styles.segmentButton, !darkMode && styles.segmentButtonActive]} 
+                onPress={() => setDarkMode(false)}>
+                <Text style={[styles.segmentText, !darkMode && styles.segmentTextActive]}>Classic</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.segmentButton, darkMode && styles.segmentButtonActive]} 
+                onPress={() => setDarkMode(true)}>
+                <Text style={[styles.segmentText, darkMode && styles.segmentTextActive]}>Dark</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           <TouchableOpacity 
@@ -1251,9 +1259,10 @@ const styles = StyleSheet.create({
   menuButton: { backgroundColor: '#fbbf24', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 10, marginVertical: 10, width: 200, alignItems: 'center' },
   menuButtonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
   winStats: { fontSize: 20, color: '#fff', marginVertical: 5 },
-  settingsBox: { marginTop: 20, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: '90%', maxWidth: 400 },
-  settingsTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', marginTop: 10 },
-  segmentControl: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: 4, marginBottom: 15 },
+  settingsBox: { marginTop: 20, padding: 20, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, width: '90%', maxWidth: 450 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
+  settingsTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', width: '35%' },
+  segmentControl: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: 4, width: '60%' },
   segmentButton: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   segmentButtonActive: { backgroundColor: '#fbbf24' },
   segmentText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
